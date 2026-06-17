@@ -1,0 +1,13 @@
+import tomllib
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+
+try:
+    __version__ = version("usdx_dl")
+except PackageNotFoundError:
+    pyproject_toml = Path(__file__).parent.parent / "pyproject.toml"
+    if pyproject_toml.exists():
+        with open(pyproject_toml, "rb") as f:
+            __version__ = tomllib.load(f)["project"]["version"]
+    else:
+        __version__ = "unknown"

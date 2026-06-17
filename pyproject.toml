@@ -1,0 +1,25 @@
+[project]
+name = "usdx-dl"
+version = "0.1.0"
+description = "Download song files for UltraStar Deluxe."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["torch", "torchaudio", "torchvision"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+override-dependencies = [
+    "torch~=2.12.0",
+    "torchaudio~=2.11.0",
+    "torchvision~=0.27.0",
+    "torchcodec~=0.14.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
+default = false

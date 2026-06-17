@@ -1,0 +1,10 @@
+{
+  "cSpell.customDictionaries": {
+    "usdx-dl": {
+      "name": "usdx-dl",
+      "path": "${workspaceRoot}/.vscode/dict.txt",
+      "description": "Words used in this project",
+      "addWords": true
+    }
+  }
+}
