@@ -9,7 +9,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "usdx_dl",
-      "args": ["https://www.youtube.com/watch?v=fJ9rUzIMcZQ"],
+      "args": ["https://www.youtube.com/watch?v=fOs0G3KLdY4", "-f", "txt"],
       "console": "integratedTerminal"
     },
   ]

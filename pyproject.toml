@@ -4,11 +4,25 @@ version = "0.1.0"
 description = "Download song files for UltraStar Deluxe."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["torch", "torchaudio", "torchvision"]
+dependencies = [
+    "audio-separator~=0.44",
+    "num2words",
+    "onnxruntime",
+    "pydub",
+    "pyhyphen",
+    "swift-f0",
+    "torch",
+    "torchaudio",
+    "torchvision",
+    "whisperx~=3.8",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.scripts]
+usdx-dl = "usdx_dl.__main__:main"
 
 [tool.uv]
 index-strategy = "unsafe-best-match"
@@ -23,3 +37,15 @@ override-dependencies = [
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cpu"
 default = false
+
+[[tool.mypy.overrides]]
+module = [
+    "whisperx.*",
+    "swift_f0.*",
+    "audio_separator.*",
+    "soundfile.*",
+    "num2words.*",
+    "pydub.*",
+    "hyphen.*",
+]
+follow_untyped_imports = true
