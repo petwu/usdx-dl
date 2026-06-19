@@ -6,5 +6,8 @@
       "description": "Words used in this project",
       "addWords": true
     }
-  }
+  },
+  "python.testing.pytestArgs": ["usdx_dl"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

@@ -10,6 +10,7 @@ dependencies = [
     "onnxruntime",
     "pydub",
     "pyhyphen",
+    "pytest",
     "swift-f0",
     "torch",
     "torchaudio",
