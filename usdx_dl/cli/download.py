@@ -8,6 +8,7 @@ import os
 import re
 from dataclasses import asdict
 from pathlib import Path
+import shutil
 from time import perf_counter
 from urllib.parse import quote_plus
 
@@ -41,6 +42,7 @@ __all__ = ["main", "Force"]
 class Force(StrEnum):
     """Argument value for ``--force``."""
 
+    CLEAN = "clean"
     ALL = "all"
     DOWNLOAD = "download"
     SPLIT_STEMS = "split-stems"
@@ -112,6 +114,8 @@ def main(
     vocals_denoised_path = tmp_dir / "vocals_denoised.mp3"
     vocals_muted_path = tmp_dir / "vocals_muted.mp3"
     instrumental_path = output_dir / "instrumental.mp3"
+    if force == Force.CLEAN and output_dir.exists():
+        shutil.rmtree(output_dir)
 
     if usdb_client is not None:
         __print_step("Downloading TXT from USDB")
