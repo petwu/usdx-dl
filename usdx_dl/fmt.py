@@ -36,3 +36,57 @@ def bytes(  # pylint: disable=redefined-builtin
     value = n / (base**exp)
 
     return f"{value:.{decimals}f} {units[exp]}"
+
+
+def time(seconds: float, decimals: int = 2, long_units: bool = False) -> str:
+    """Convert seconds to a human-readable string.
+
+    Args:
+        seconds: Number of seconds. Must be non-negative.
+        decimals: Number of decimal places to show for seconds.
+        long_units: If True, use long units (seconds, minutes, hours).
+                    If False, use short units (s, min, h).
+    Returns:
+        Human-readable string like "3d 17h 5min 17.34s".
+    """
+    if seconds < 0:
+        raise ValueError(f"seconds must be non-negative, got {seconds}")
+
+    if long_units:
+        units = ["years", "months", "weeks", "days", "hours", "minutes", "seconds"]
+    else:
+        units = ["y", "mo", "w", "d", "h", "min", "s"]
+
+    factors = [
+        365.25 * 24 * 3600,  # years
+        30.4375 * 24 * 3600,  # months
+        7 * 24 * 3600,  # weeks
+        24 * 3600,  # days
+        3600,  # hours
+        60,  # minutes
+        1,  # seconds
+    ]
+
+    result = []
+    for unit, factor in zip(units, factors):
+        if unit == units[-1]:  # seconds
+            result.append(f"{seconds:.{decimals}f}{unit}")
+            break
+        if seconds >= factor:
+            value = int(seconds // factor)
+            result.append(f"{value}{unit}")
+            seconds -= value * factor
+
+    if result:
+        return " ".join(result)
+    return f"0 {units[-1]}"
+
+
+def pluralize(count: int, singular: str, plural: str | None = None) -> str:
+    """Return singular or plural form based on count."""
+    if count == 1:
+        return singular
+    if plural is not None:
+        return plural
+    # simple pluralization by adding 's'
+    return singular + "s"

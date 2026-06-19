@@ -27,6 +27,7 @@ from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
 from time import perf_counter
+from typing import Callable, Literal
 from urllib.parse import quote_plus
 
 import numpy as np
@@ -65,40 +66,51 @@ class Force(StrEnum):
     TXT = "txt"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(
+    default_subcmd: Literal["download", "list"] = "download",
+) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
+    subparsers = parser.add_subparsers(dest="cmd")
+    parser_dl = subparsers.add_parser("download", help="Download a song. (default)")
+    parser_ls = subparsers.add_parser("list", help="List all songs.")
+    assert default_subcmd in subparsers.choices.keys()
+    parser_dl.set_defaults(func=cmd_download)
+    parser_ls.set_defaults(func=cmd_list)
+    all_parsers = [parser_dl, parser_ls]
+
+    parser_dl.add_argument(
         "url_or_id",
         type=str,
         help="Song URL or ID from https://usdb.animux.de or https://www.youtube.com.",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-c",
         "--usdb-cookie",
         metavar="PHPSESSID",
         type=str,
         help="USDB login session cookie for API requests.",
     )
-    parser.add_argument(
-        "-o",
-        "--output-dir",
-        metavar="DIR",
-        type=Path,
-        default="songs",
-        help="Output directory. (default: %(default)s)",
-    )
-    parser.add_argument(
+    for p in all_parsers:
+        p.add_argument(
+            "-o",
+            "--output-dir",
+            metavar="DIR",
+            type=Path,
+            default="songs",
+            help="Output directory. (default: %(default)s)",
+        )
+    parser_dl.add_argument(
         "-m",
         "--models-dir",
         type=Path,
         default=Path(__file__).parent.parent / ".models",
         help="Model cache directory. (default: %(default)s)",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-s",
         "--stem-model",
         type=str,
@@ -106,7 +118,7 @@ def parse_args() -> argparse.Namespace:
         default="demucs",
         help="Model used for stem separation. (default: %(default)s)",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-w",
         "--whisper-model",
         type=str,
@@ -115,7 +127,7 @@ def parse_args() -> argparse.Namespace:
         help="Model size of the WhisperX model used for transcription. "
         "(default: %(default)s)",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-r",
         "--sample-rate",
         metavar="INT",
@@ -123,7 +135,7 @@ def parse_args() -> argparse.Namespace:
         default=44100,
         help="Audio sample rate. (default: %(default)s)",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-g",
         "--vocals-gain",
         type=float,
@@ -134,7 +146,7 @@ def parse_args() -> argparse.Namespace:
         "support setting the vocals volume within the game. "
         "(default: %(default)s)",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-p",
         "--phrase-correction",
         metavar="FLOAT",
@@ -145,7 +157,7 @@ def parse_args() -> argparse.Namespace:
         "Use with `-f txt` to try various values. "
         "(default: %(default)s)",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-f",
         "--force",
         type=str,
@@ -155,30 +167,56 @@ def parse_args() -> argparse.Namespace:
         help="Force to rerun everything or just a specific step. "
         "Defaults to 'all' without argument.",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-v",
         "--no-video",
         action="store_true",
         help="Don't download the music video from YouTube and set a static "
         "background image instead.",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-l",
         "--no-lyrics",
         action="store_true",
         help="Don't search for synced lyrics on https://lrclib.net, instead "
         "always transcribe with WhisperX.",
     )
-    parser.add_argument(
+    parser_dl.add_argument(
         "-n",
         "--non-interactive",
         action="store_true",
         help="Enable non-interactive mode.",
     )
-    return parser.parse_args()
+
+    parser_ls.add_argument(
+        "-s",
+        "--sort-by",
+        type=str,
+        choices=["id", "artist", "title"],
+        default="id",
+        help="Sort by artist, title or ID (directory name). (default: %(default)s)",
+    )
+    parser_ls.add_argument(
+        "-r",
+        "--reverse",
+        action="store_true",
+        help="Inverse the sorting order.",
+    )
+
+    # handle default subcommand
+    argv = sys.argv[1:]
+    try:
+        parser.exit_on_error = False  # type: ignore
+        parser.parse_known_args(argv)
+        parser.exit_on_error = True  # type: ignore
+    except argparse.ArgumentError as e:
+        if e.argument_name == "cmd":
+            argv.insert(0, default_subcmd)
+
+    return parser.parse_args(argv)
 
 
-def run_pipeline(
+def cmd_download(
     url_or_id: str,
     usdb_cookie: str,
     output_dir: Path,
@@ -573,6 +611,74 @@ def run_pipeline(
     print(f"{ansi.BOLD}Total: {fmt.bytes(output_dir_size):>{c1 + c2 - 7}s}{ansi.RESET}")
 
 
+def cmd_list(
+    output_dir: Path,
+    sort_by: Literal["artist", "title", "id"],
+    reverse: bool,
+) -> None:
+    """Args: See :func:`parse_args`."""
+    # find all songs assuming a flat directory structure
+    t_start = perf_counter()
+    meta_list: list[tuple[Path, SongMetadata]] = []
+    for song_dir in sorted(output_dir.glob("*")):
+        meta_path = song_dir / "metadata.json"
+        if not song_dir.is_dir() or not meta_path.exists():
+            continue
+        meta = SongMetadata.load(meta_path)
+        meta_list.append((song_dir, meta))
+    if len(meta_list) == 0:
+        print("No songs found.")
+        return
+
+    # print sorted list
+    def sort_fn(item: tuple[Path, SongMetadata]) -> tuple[str, ...]:
+        song_dir, meta = item
+        if sort_by == "artist":
+            return (meta.artist.lower(), meta.title.lower(), song_dir.name)
+        if sort_by == "title":
+            return (meta.title.lower(), meta.artist.lower(), song_dir.name)
+        if sort_by == "id":
+            return (song_dir.name.lower(), meta.artist.lower(), meta.title.lower())
+        raise ValueError(f"Invalid sort key: {sort_by}")
+
+    meta_list = sorted(meta_list, key=sort_fn, reverse=reverse)
+    order = {
+        "artist": [0, 1, 2],
+        "title": [1, 0, 2],
+        "id": [2, 0, 1],
+    }[sort_by]
+    t_end = perf_counter()
+    elapsed = t_end - t_start
+
+    # print result
+    cols = ["Artist", "Title", "Directory"]
+    col_widths = [
+        max(len(meta.artist) for _, meta in meta_list),
+        max(len(meta.title) for _, meta in meta_list),
+        max(len(str(song_dir)) for song_dir, _ in meta_list),
+    ]
+    col_gap = " " * 3
+    print(
+        f"{ansi.BOLD}Found {len(meta_list)} {fmt.pluralize(len(meta_list), 'song')} "
+        f"in {output_dir}/ "
+        f"{ansi.DIM}({fmt.time(elapsed, decimals=4)}){ansi.RESET}"
+    )
+    print()
+    print(
+        ansi.BOLD
+        + col_gap.join(f"{cols[i]:{col_widths[i]}}" for i in order)
+        + ansi.RESET
+    )
+    print("-" * (sum(col_widths) + len(col_gap) * (len(cols) - 1)))
+    for song_dir, meta in meta_list:
+        cols = [
+            f"{ansi.BOLD}{ansi.CYAN}{meta.artist:{col_widths[0]}}{ansi.RESET}",
+            f"{ansi.MAGENTA}{meta.title:{col_widths[1]}}{ansi.RESET}",
+            f"{ansi.DIM}{str(song_dir):{col_widths[2]}}{ansi.RESET}",
+        ]
+        print(col_gap.join(cols[i] for i in order))
+
+
 def should_run(output_file: Path | str, force_arg: Force, *force_types: Force) -> bool:
     """Helper to only run certain parts of the pipeline of either the output file
     doesn't exist or the ``--force`` flag is set."""
@@ -594,11 +700,7 @@ def print_step(step: str) -> None:
 def print_time() -> None:
     """Print step timing."""
     elapsed = perf_counter() - __step_start
-    time_str = ""
-    if elapsed > 60:
-        time_str += f"{int(elapsed // 60)}min "
-    time_str += f"{elapsed % 60:.3f}s"
-    print(f"{ansi.DIM}~~> Took {time_str}{ansi.RESET}")
+    print(f"{ansi.DIM}~~> Took {fmt.time(elapsed)}{ansi.RESET}")
 
 
 def print_cached(file: Path | str) -> None:
@@ -609,7 +711,11 @@ def print_cached(file: Path | str) -> None:
 def main():
     """Main function."""
     try:
-        run_pipeline(**vars(parse_args()))
+        args = vars(parse_args())
+        args.pop("cmd", None)
+        subcmd_func = args.pop("func")
+        assert isinstance(subcmd_func, Callable)
+        subcmd_func(**args)
     except KeyboardInterrupt:
         print()
     except Exception as e:  # pylint: disable=broad-exception-caught

@@ -20,6 +20,7 @@ pyhyphen
 roformer
 samplerate
 soundfile
+subcmd
 ultrastar
 ultrastardx
 usdb
