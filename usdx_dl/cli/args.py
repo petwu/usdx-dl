@@ -1,0 +1,181 @@
+"""Download all necessary files (txt, cover, audio, video, etc.) for UltraStar Deluxe
+and similar games that support UltraStar .txt files.
+
+Uses AI models for these tasks:
+- separation of vocals and instrumental stems (demucs or Mel-Band RoFormer)
+- audio description (whisperx) [not for USDB links]
+- pitch detection (swift-f0) [not for USDB links]
+
+Getting started:
+1.  Go to https://usdb.animux.de, create an account and search for songs.
+2a. Copy the song URL and run:
+    $ usdx-dl "https://usdb.animux.de/?link=detail&id=1368"
+2b. If you can't find the song on USDB, you can also provide a YouTube link:
+    $ usdx-dl "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    Note: This generates the TXT file using AI models for lyric transcription
+    and pitch detection and will be less accurate.
+"""
+
+
+import argparse
+import sys
+from pathlib import Path
+from typing import Callable, Literal
+
+
+from usdx_dl import cli
+
+
+def parse(
+    default_subcmd: Literal["download", "list"] = "download",
+) -> tuple[Callable, argparse.Namespace]:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(dest="cmd")
+    parser_dl = subparsers.add_parser("download", help="Download a song. (default)")
+    parser_ls = subparsers.add_parser("list", help="List all songs.")
+    assert default_subcmd in subparsers.choices.keys()
+    parser_dl.set_defaults(func=cli.download.main)
+    parser_ls.set_defaults(func=cli.list.main)
+    all_parsers = [parser_dl, parser_ls]
+
+    parser_dl.add_argument(
+        "url_or_id",
+        type=str,
+        help="Song URL or ID from https://usdb.animux.de or https://www.youtube.com.",
+    )
+    parser_dl.add_argument(
+        "-c",
+        "--usdb-cookie",
+        metavar="PHPSESSID",
+        type=str,
+        help="USDB login session cookie for API requests.",
+    )
+    for p in all_parsers:
+        p.add_argument(
+            "-o",
+            "--output-dir",
+            metavar="DIR",
+            type=Path,
+            default="songs",
+            help="Output directory. (default: %(default)s)",
+        )
+    parser_dl.add_argument(
+        "-m",
+        "--models-dir",
+        type=Path,
+        default=Path(__file__).parent.parent / ".models",
+        help="Model cache directory. (default: %(default)s)",
+    )
+    parser_dl.add_argument(
+        "-s",
+        "--stem-model",
+        type=str,
+        choices=["demucs", "mel-roformer"],
+        default="demucs",
+        help="Model used for stem separation. (default: %(default)s)",
+    )
+    parser_dl.add_argument(
+        "-w",
+        "--whisper-model",
+        type=str,
+        default="turbo",
+        choices=["tiny", "base", "small", "medium", "large", "turbo"],
+        help="Model size of the WhisperX model used for transcription. "
+        "(default: %(default)s)",
+    )
+    parser_dl.add_argument(
+        "-r",
+        "--sample-rate",
+        metavar="INT",
+        type=int,
+        default=44100,
+        help="Audio sample rate. (default: %(default)s)",
+    )
+    parser_dl.add_argument(
+        "-g",
+        "--vocals-gain",
+        type=float,
+        metavar="0..1",
+        default=0.0,
+        help="Gain in [0, 1] for the vocals. Higher means vocals are louder. "
+        "Use only if you use another game than UltraStart Deluxe that doesn't "
+        "support setting the vocals volume within the game. "
+        "(default: %(default)s)",
+    )
+    parser_dl.add_argument(
+        "-p",
+        "--phrase-correction",
+        metavar="FLOAT",
+        type=float,
+        default=1.0,
+        help="Manually correct for unintuitive phrase splits. If phrases are too "
+        "short use a value >1, for too long phases a value in [0, 1). "
+        "Use with `-f txt` to try various values. "
+        "(default: %(default)s)",
+    )
+    parser_dl.add_argument(
+        "-f",
+        "--force",
+        type=str,
+        nargs="?",
+        const="all",
+        choices=list(cli.download.Force),
+        help="Force to rerun everything or just a specific step. "
+        "Defaults to 'all' without argument.",
+    )
+    parser_dl.add_argument(
+        "-v",
+        "--no-video",
+        action="store_true",
+        help="Don't download the music video from YouTube and set a static "
+        "background image instead.",
+    )
+    parser_dl.add_argument(
+        "-l",
+        "--no-lyrics",
+        action="store_true",
+        help="Don't search for synced lyrics on https://lrclib.net, instead "
+        "always transcribe with WhisperX.",
+    )
+    parser_dl.add_argument(
+        "-n",
+        "--non-interactive",
+        action="store_true",
+        help="Enable non-interactive mode.",
+    )
+
+    parser_ls.add_argument(
+        "-s",
+        "--sort-by",
+        type=str,
+        choices=["id", "artist", "title"],
+        default="id",
+        help="Sort by artist, title or ID (directory name). (default: %(default)s)",
+    )
+    parser_ls.add_argument(
+        "-r",
+        "--reverse",
+        action="store_true",
+        help="Inverse the sorting order.",
+    )
+
+    # handle default subcommand
+    argv = sys.argv[1:]
+    try:
+        parser.exit_on_error = False  # type: ignore
+        parser.parse_known_args(argv)
+        parser.exit_on_error = True  # type: ignore
+    except argparse.ArgumentError as e:
+        if e.argument_name == "cmd":
+            argv.insert(0, default_subcmd)
+
+    args = parser.parse_args(argv)
+    func = args.func
+    del args.cmd  # type: ignore
+    del args.func  # type: ignore
+
+    return func, args
