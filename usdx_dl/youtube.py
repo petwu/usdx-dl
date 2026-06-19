@@ -33,7 +33,7 @@ class APIClient:
     def data(self) -> dict:
         """Video metadata."""
         if self._data is None:
-            args = ["yt-dlp", "--dump-json", self.id]
+            args = ["yt-dlp", "--dump-json", self.url]
             output = subprocess.run(args, stdout=subprocess.PIPE, check=True).stdout
             self._data = json.loads(output.decode("utf-8"))
         return self._data  # type: ignore
@@ -84,7 +84,7 @@ class APIClient:
             "--force-overwrites",
             "-o",
             path.as_posix(),
-            f"https://www.youtube.com/watch?v={self.id}",
+            self.url,
         ]
         return subprocess.run(args, check=False).returncode == 0
 
@@ -99,7 +99,7 @@ class APIClient:
             "--force-overwrites",
             "-o",
             path.as_posix(),
-            f"https://www.youtube.com/watch?v={self.id}",
+            self.url,
         ]
         return subprocess.run(args, check=False).returncode == 0
 
