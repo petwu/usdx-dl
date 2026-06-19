@@ -17,10 +17,14 @@ petwu
 PHPSESSID
 pydub
 pyhyphen
+pytest
 roformer
 samplerate
 soundfile
 subcmd
+torchaudio
+torchcodec
+torchvision
 ultrastar
 ultrastardx
 usdb
