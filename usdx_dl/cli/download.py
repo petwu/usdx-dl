@@ -156,15 +156,32 @@ def main(
         if not non_interactive:
             print("Please check the following metadata")
             song_meta.artist = (
-                input(f"- Artist [{song_meta.artist}]: ") or song_meta.artist
+                input(f"- Artist [{ansi.BOLD}{song_meta.artist}{ansi.RESET}]: ")
+                or song_meta.artist
             )
-            song_meta.title = input(f"- Title [{song_meta.title}]: ") or song_meta.title
+            song_meta.title = (
+                input(f"- Title [{ansi.BOLD}{song_meta.title}{ansi.RESET}]: ")
+                or song_meta.title
+            )
+            if usdb_client is not None:
+                song_meta.video_url = (
+                    input(
+                        f"- YouTube URL [{ansi.BOLD}{song_meta.video_url}{ansi.RESET}] "
+                        f"{ansi.DIM}({yt_client.describe()}){ansi.RESET}: "
+                    )
+                    or song_meta.video_url
+                )
         song_meta.serialize(meta_path)
         __print_time()
     else:
         song_meta = SongMetadata.load(meta_path)
         __print_cached(meta_path)
     print(song_meta)
+    print(f"Saving files to {output_dir}")
+    name_path = output_dir / re.sub(
+        r"[^a-zA-Z0-9 _\-.,@()\[\]]", "", f"@ {song_meta.artist} - {song_meta.title}"
+    )
+    name_path.touch()  # create empty file to make the name visible in file explorers
 
     # download cover image
     __print_step("Downloading cover and background image")

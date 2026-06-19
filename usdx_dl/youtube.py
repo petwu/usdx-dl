@@ -61,6 +61,13 @@ class APIClient:
             bg_url=thumbnail,
         )
 
+    def describe(self) -> str:
+        """Return a human-readable description of the video."""
+        title = self.data["title"]
+        uploader = self.data["uploader"]
+        duration = fmt.time(self.data["duration"], decimals=0)
+        return f"{title} by {uploader} @ {duration}"
+
     def download_audio(self, path: Path | str, sample_rate: int) -> bool:
         """Download the audio of the video."""
         path = Path(path)
