@@ -16,31 +16,36 @@ Getting started:
     and pitch detection and will be less accurate.
 """
 
-
 import argparse
 import sys
 from pathlib import Path
 from typing import Callable, Literal
 
-
-from usdx_dl import cli
+from usdx_dl import __version__, cli
 
 
 def parse(
-    default_subcmd: Literal["download", "list"] = "download",
+    default_subcmd: Literal["download", "list", "version"] = "download",
 ) -> tuple[Callable, argparse.Namespace]:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subparsers = parser.add_subparsers(dest="cmd")
-    parser_dl = subparsers.add_parser("download", help="Download a song. (default)")
-    parser_ls = subparsers.add_parser("list", help="List all songs.")
+    version_action = parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
+    subparsers = parser.add_subparsers(dest="cmd", title="subcommands", required=True)
+    parser_dl = subparsers.add_parser("download", help="download a song (default)")
+    parser_ls = subparsers.add_parser("list", help="list all songs")
+    parser_v = subparsers.add_parser("version", help=version_action.help)
     assert default_subcmd in subparsers.choices.keys()
     parser_dl.set_defaults(func=cli.download.main)
     parser_ls.set_defaults(func=cli.list.main)
-    all_parsers = [parser_dl, parser_ls]
+    parser_v.set_defaults(func=lambda: version_action(parser, argparse.Namespace(), []))
 
     parser_dl.add_argument(
         "url_or_id",
@@ -54,7 +59,7 @@ def parse(
         type=str,
         help="USDB login session cookie for API requests.",
     )
-    for p in all_parsers:
+    for p in [parser_dl, parser_ls]:
         p.add_argument(
             "-o",
             "--output-dir",
