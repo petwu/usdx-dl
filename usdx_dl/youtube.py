@@ -5,6 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from usdx_dl import fmt
 from usdx_dl.models import SongMetadata
 
 __all__ = ["APIClient", "search"]
@@ -48,7 +49,7 @@ class APIClient:
             or self.data.get("creator")
             or self.data.get("channel", "Unknown")
         )
-        title = self._clean_title(self.data["title"], artist)
+        title = fmt.clean_title(self.data["title"], artist)
         year = int(self.data.get("release_year") or self.data["upload_date"][:4])
         thumbnail = self.data.get("thumbnail")
         return SongMetadata(
@@ -59,14 +60,6 @@ class APIClient:
             cover_url=thumbnail,
             bg_url=thumbnail,
         )
-
-    def _clean_title(self, title: str, artist: str) -> str:
-        # remove leading "Artist - " prefix
-        title = re.sub(r"^\s*" + re.escape(artist) + r"\s*[-–—/]+\s*", "", title)
-        # remove suffixes in braces/brackets, e.g. "(Official Music Video)"
-        title = re.sub(r"(\([^)]+\)|\[[^]]+\])\s*$", "", title)
-        title = title.strip()
-        return title
 
     def download_audio(self, path: Path | str, sample_rate: int) -> bool:
         """Download the audio of the video."""

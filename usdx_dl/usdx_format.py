@@ -6,6 +6,7 @@ See:
 
 from pathlib import Path
 
+from usdx_dl import fmt
 from usdx_dl.models import SongMetadata
 
 
@@ -21,9 +22,12 @@ def parse_metadata(txt: str) -> SongMetadata | None:
                 return line[len(f"#{key}:") :].strip()
         return ""
 
+    artist = get("ARTIST")
+    title = fmt.clean_title(get("TITLE"), artist)
+
     return SongMetadata(
-        artist=get("ARTIST"),
-        title=get("TITLE"),
+        artist=artist,
+        title=title,
         year=int(get("YEAR")),
         genre=get("GENRE"),
         language=get("LANGUAGE"),

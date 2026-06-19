@@ -1,6 +1,9 @@
 """String formatting helpers."""
 
 import math
+import re
+import unicodedata
+from string import punctuation
 
 
 def bytes(  # pylint: disable=redefined-builtin
@@ -90,3 +93,56 @@ def pluralize(count: int, singular: str, plural: str | None = None) -> str:
         return plural
     # simple pluralization by adding 's'
     return singular + "s"
+
+
+def sub_diacritics(pattern: str, repl: str, string: str, **kwargs) -> str:
+    """Like :func:`re.sub` but also matches diacritics.
+
+    Example:
+    >>> sub_diacritics(r"cafe", "bistro", "café")
+    'bistro'
+    >>> sub_diacritics(r"naive", "experienced", "naïve")
+    'experienced'
+    """
+    # expand pattern to allow optional combining marks after each char
+    expanded = "".join(
+        f"{re.escape(ch)}[\u0300-\u036f\u1dc0-\u1dff\u20d0-\u20ff]*" for ch in pattern
+    )
+    nfd = unicodedata.normalize("NFD", string)
+    result = re.sub(expanded, repl, nfd, **kwargs)
+    return unicodedata.normalize("NFC", result)
+
+
+def clean_title(title: str, artist: str) -> str:
+    """Clean a song title by removing common prefixes/suffixes."""
+    # remove quotes
+    title = re.sub(r"[\"'“”‘’]", "", title)
+
+    # remove leading/trailing artist names, e.g. "Artist - ", "... ft. Artist"
+    for a in re.split(r"(,|&|and|feat\.?|ft\.?)", artist, flags=re.IGNORECASE):
+        a = re.sub(r"[\"'“”‘’]", "", a.strip())
+        if len(a) < 2:
+            continue
+        title = sub_diacritics(a, "", title, flags=re.IGNORECASE)
+    title = re.sub(
+        r"^(.+)\s+(feat\.?|ft\.?)[\s\w-]+$", r"\1", title, flags=re.IGNORECASE
+    )
+    title = re.sub(r"(feat\.?|ft\.?)", "", title, flags=re.IGNORECASE)
+
+    # remove suffixes in braces/brackets, e.g. "(Official Music Video)"
+    title = re.sub(r"(\([^)]+\)|\[[^]]+\])", "", title)
+
+    # remove common extra words
+    title = re.sub(
+        r"(official|music|video|audio|lyric|lyrics|version|remastered|HD|4K|HQ|mono|stereo|m/v)",
+        "",
+        title,
+        flags=re.IGNORECASE,
+    )
+
+    # remove leading/trailing punctuation and whitespace
+    title = re.sub(r"^[" + punctuation.replace("-", "\\-") + r"–—\s]+\s+", "", title)
+    title = re.sub(r"\s+[" + punctuation.replace("-", "\\-") + r"–—\s]+$", "", title)
+    title = title.strip()
+
+    return title
