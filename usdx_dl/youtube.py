@@ -14,10 +14,11 @@ __all__ = ["APIClient", "search"]
 class APIClient:
     """Client to interact with a specific YouTube video."""
 
-    def __init__(self, url_or_id: str) -> None:
+    def __init__(self, url_or_id: str, max_tries: int = 3) -> None:
         """
         Args:
             url_or_id: YouTube video URL or ID.
+            max_tries: Maximum number of attempts in case of 403 Forbidden errors.
         """
         if url_or_id.startswith("http"):
             match = re.search(r"watch\?v=([\w_-]+)", url_or_id)
@@ -27,6 +28,7 @@ class APIClient:
         else:
             self.id = url_or_id
         self.url = f"https://www.youtube.com/watch?v={self.id}"
+        self.max_tries = max_tries
         self._data: dict | None = None
 
     @property
@@ -70,38 +72,56 @@ class APIClient:
 
     def download_audio(self, path: Path | str, sample_rate: int) -> bool:
         """Download the audio of the video."""
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        args = [
-            "yt-dlp",
-            "-f",
-            "bestaudio",
-            "--extract-audio",
-            "--audio-format",
-            path.suffix[1:],
-            "--postprocessor-args",
-            f"ffmpeg:-ar {sample_rate}",
-            "--force-overwrites",
-            "-o",
-            path.as_posix(),
-            self.url,
-        ]
-        return subprocess.run(args, check=False).returncode == 0
+        attempt = 0
+        while attempt < self.max_tries:
+            attempt += 1
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            args = [
+                "yt-dlp",
+                "-f",
+                "bestaudio",
+                "--extract-audio",
+                "--audio-format",
+                path.suffix[1:],
+                "--postprocessor-args",
+                f"ffmpeg:-ar {sample_rate}",
+                "--force-overwrites",
+                "-o",
+                path.as_posix(),
+                self.url,
+            ]
+            p = subprocess.run(args, check=False, stderr=subprocess.PIPE)
+            if p.returncode == 0:
+                return True
+            stderr = p.stderr.decode("utf-8")
+            if re.search(r"HTTP.+403.+Forbidden", stderr, re.IGNORECASE):
+                print(f"Retrying audio download (attempt {attempt}/{self.max_tries}).")
+        return False
 
     def download_video(self, path: Path | str) -> bool:
         """Download the video."""
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        args = [
-            "yt-dlp",
-            "-f",
-            f"bestvideo[ext={path.suffix[1:]}][height<=1080]",
-            "--force-overwrites",
-            "-o",
-            path.as_posix(),
-            self.url,
-        ]
-        return subprocess.run(args, check=False).returncode == 0
+        attempt = 0
+        while attempt < self.max_tries:
+            attempt += 1
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            args = [
+                "yt-dlp",
+                "-f",
+                f"bestvideo[ext={path.suffix[1:]}][height<=1080]",
+                "--force-overwrites",
+                "-o",
+                path.as_posix(),
+                self.url,
+            ]
+            p = subprocess.run(args, check=False, stderr=subprocess.PIPE)
+            if p.returncode == 0:
+                return True
+            stderr = p.stderr.decode("utf-8")
+            if re.search(r"HTTP.+403.+Forbidden", stderr, re.IGNORECASE):
+                print(f"Retrying video download (attempt {attempt}/{self.max_tries}).")
+        return False
 
 
 def search(query: str) -> APIClient:
