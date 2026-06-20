@@ -69,7 +69,7 @@ def create(
     txt = ""
     # metadata
     txt += "#VERSION:1.2.0\n"
-    txt += "#CREATOR:petwu\n"
+    txt += "#CREATOR:usdx-dl\n"
     txt += f"#ARTIST:{song_meta.artist}\n"
     txt += f"#TITLE:{song_meta.title}\n"
     txt += f"#YEAR:{song_meta.year}\n"
