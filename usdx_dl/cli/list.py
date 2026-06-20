@@ -1,9 +1,9 @@
 """Subcommand: usdx-dl list - List all songs."""
 
+import re
 from pathlib import Path
 from time import perf_counter
 from typing import Literal
-
 
 from usdx_dl import ansi, fmt
 from usdx_dl.models import SongMetadata
@@ -29,22 +29,13 @@ def main(
         return
 
     # print sorted list
-    def sort_fn(item: tuple[Path, SongMetadata]) -> tuple[str, ...]:
-        song_dir, meta = item
-        if sort_by == "artist":
-            return (meta.artist.lower(), meta.title.lower(), song_dir.name)
-        if sort_by == "title":
-            return (meta.title.lower(), meta.artist.lower(), song_dir.name)
-        if sort_by == "id":
-            return (song_dir.name.lower(), meta.artist.lower(), meta.title.lower())
-        raise ValueError(f"Invalid sort key: {sort_by}")
-
-    meta_list = sorted(meta_list, key=sort_fn, reverse=reverse)
     order = {
         "artist": [0, 1, 2],
         "title": [1, 0, 2],
         "id": [2, 0, 1],
     }[sort_by]
+    sort_fn = __sort_key(order, natural=True)
+    meta_list = sorted(meta_list, key=sort_fn, reverse=reverse)
     t_end = perf_counter()
     elapsed = t_end - t_start
 
@@ -75,3 +66,18 @@ def main(
             f"{ansi.DIM}{str(song_dir):{col_widths[2]}}{ansi.RESET}",
         ]
         print(col_gap.join(cols[i] for i in order))
+
+
+def __sort_key(order: list[int], natural: bool = False):
+    assert len(order) == 3 and set(order) == {0, 1, 2}
+
+    def fn(item: tuple[Path, SongMetadata]) -> str | list[int | str]:
+        song_dir, meta = item
+        sort_info = [meta.artist, meta.title, song_dir.name]
+        sort_info = [sort_info[i] for i in order]
+        sort_str = " ".join(str(x) for x in sort_info).lower()
+        if natural:
+            return [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", sort_str)]
+        return sort_str
+
+    return fn
