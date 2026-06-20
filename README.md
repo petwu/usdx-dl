@@ -13,8 +13,8 @@ Install the following **dependencies**:
 The run:
 
 ```sh
-uv sync
-. ./.venv/bin/active
+uv venv
+uv pip install --torch-backend auto --editable .
 usdx-dl --help
 ```
 
