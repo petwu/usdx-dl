@@ -1,15 +1,17 @@
 """Subcommand: usdx-dl download - Download a song."""
 
-from enum import StrEnum
+from collections.abc import Iterable
 import io
 import json
 import logging
 import os
 import re
-from dataclasses import asdict
-from pathlib import Path
 import shutil
+from dataclasses import asdict
+from enum import StrEnum
+from pathlib import Path
 from time import perf_counter
+import time
 from urllib.parse import quote_plus
 
 import numpy as np
@@ -35,7 +37,6 @@ from usdx_dl import (
 )
 from usdx_dl.models import PitchedData, SongMetadata, TranscribedData
 
-
 __all__ = ["main", "Force"]
 
 
@@ -52,7 +53,72 @@ class Force(StrEnum):
     TXT = "txt"
 
 
-def main(
+def main(source: str, **kwargs) -> None:
+    """Args: See :func:`.args.parse`."""
+    if Path(source).is_file():
+        batch_process(Path(source), **kwargs)
+    else:
+        run_pipeline(url_or_id=source, **kwargs)
+
+
+def batch_process(
+    batch_path: Path,
+    keep_going: bool,
+    **kwargs,
+) -> None:
+    """Args: See :func:`.args.parse`."""
+    __print_batch_status(f"Processing from: {batch_path}")
+    skipped: list[str] = []
+    while True:
+        batch = __load_batch_file(batch_path)
+        __print_batch_status(
+            f"{len(batch)} {fmt.pluralize(len(batch), 'item')} remaining."
+        )
+        if len(batch) == 0:
+            if not keep_going:
+                break
+            __print_batch_status("Batch file is empty. Waiting for new entries ...")
+            while len(batch) == 0:
+                time.sleep(3)
+                batch = __load_batch_file(batch_path)
+        url_or_id = batch.pop(0).strip()
+        __print_batch_status(f"Processing {url_or_id} ...")
+        try:
+            run_pipeline(url_or_id=url_or_id, **kwargs)
+        except KeyboardInterrupt:
+            __print_batch_status("Interrupted by user. Stopping.")
+            return
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            __print_batch_status(f"Failed to process {url_or_id}. Skipping. Error: {e}")
+            skipped.append(url_or_id)
+        remaining = __load_batch_file(batch_path)
+        remaining.remove(url_or_id)
+        __save_batch_file(batch_path, remaining)
+    __print_batch_status("Finished.")
+    if len(skipped) == 0:
+        __save_batch_file(batch_path, [])
+    else:
+        __print_batch_status(
+            f"Keeping {len(skipped)} skipped {fmt.pluralize(len(skipped), 'item')}."
+        )
+        __save_batch_file(batch_path, skipped)
+
+
+def __load_batch_file(path: Path) -> list[str]:
+    batch = path.read_text(encoding="utf-8").splitlines()
+    batch = list(filter(None, (line.strip() for line in batch)))
+    return batch
+
+
+def __save_batch_file(path: Path, batch: Iterable[str]) -> None:
+    path.write_text("\n".join(batch) + "\n", encoding="utf-8")
+
+
+def __print_batch_status(msg: str) -> None:
+    print(f"{ansi.MAGENTA}[BATCH] {msg}{ansi.RESET}")
+
+
+def run_pipeline(
     url_or_id: str,
     usdb_cookie: str,
     output_dir: Path,
@@ -68,6 +134,8 @@ def main(
     non_interactive: bool,
 ) -> None:
     """Args: See :func:`.args.parse`."""
+    global __step_count  # pylint: disable=global-statement
+    __step_count = 0
     os.environ["TORCH_HOME"] = str(models_dir / "torch")
     os.environ["HF_HOME"] = str(models_dir / "hf")
 

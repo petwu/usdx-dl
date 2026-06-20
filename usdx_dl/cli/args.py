@@ -48,9 +48,10 @@ def parse(
     parser_v.set_defaults(func=lambda: version_action(parser, argparse.Namespace(), []))
 
     parser_dl.add_argument(
-        "url_or_id",
+        "source",
         type=str,
-        help="Song URL or ID from https://usdb.animux.de or https://www.youtube.com.",
+        help="Song URL or ID from https://usdb.animux.de or https://www.youtube.com. "
+        "Or path to a text file containing a list of URLs/IDs, one per line.",
     )
     parser_dl.add_argument(
         "-c",
@@ -151,6 +152,13 @@ def parse(
         "--non-interactive",
         action="store_true",
         help="Enable non-interactive mode.",
+    )
+    parser_dl.add_argument(
+        "-k",
+        "--keep-going",
+        action="store_true",
+        help="In batch mode, keep running even if the batch file is empty and "
+        "wait for new entries.",
     )
 
     parser_ls.add_argument(

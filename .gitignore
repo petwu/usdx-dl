@@ -18,3 +18,7 @@ build/
 __pycache__/
 *.pyc
 uv.lock
+batch.txt
+collection.txt
+playlist.txt
+songs.txt

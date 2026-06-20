@@ -23,6 +23,8 @@ usdx-dl --help
 > [!tip]
 > Providing USDB links is preferred, as it typically provides quality TXT files.
 > When providing only a YouTube link, the TXT is generated using AI models, which can be less accurate.
+>
+> Find popular songs [here](https://usdb.animux.de/?link=list&start=0&order=views&ud=desc).
 
 ### USDB
 
@@ -51,6 +53,14 @@ This performs the following steps:
 5. Transcribe using [whisperX](https://github.com/m-bain/whisperX).
 6. Predict pitch using [SwiftF0](https://github.com/lars76/swift-f0).
 7. Generate TXT files.
+
+### Batch Processing
+
+You can also provide a text file containing one link/ID per line:
+
+```sh
+usdx-dl songs.txt [--non-interactive]
+```
 
 ## 🎙️ Start Singing
 
