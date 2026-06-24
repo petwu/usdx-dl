@@ -1,4 +1,5 @@
 animux
+autoraise
 bestaudio
 bestvideo
 corrcoef
@@ -6,12 +7,16 @@ demucs
 denoise
 denoised
 denoising
+fastapi
 fmax
 fmin
 gettxt
 htdemucs
 hyphenator
 lrclib
+lucide
+mkdirs
+nums
 onnxruntime
 petwu
 PHPSESSID
@@ -21,10 +26,12 @@ pytest
 roformer
 samplerate
 soundfile
+sref
 subcmd
 torchaudio
 torchcodec
 torchvision
+tqdm
 ultrastar
 ultrastardx
 usdb
@@ -32,4 +39,5 @@ USDB
 usdx
 venv
 whisperx
+ytimg
 ytsearch

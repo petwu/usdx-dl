@@ -1,17 +1,15 @@
 """Subcommand: usdx-dl download - Download a song."""
 
-from collections.abc import Iterable
 import io
-import json
 import logging
 import os
 import re
 import shutil
-from dataclasses import asdict
-from enum import StrEnum
+import time
+import uuid
+from collections.abc import Iterable
 from pathlib import Path
 from time import perf_counter
-import time
 from urllib.parse import quote_plus
 
 import numpy as np
@@ -26,7 +24,9 @@ from usdx_dl import (
     ffmpeg,
     fmt,
     hyphens,
+    interactive,
     lyrics,
+    models,
     silence,
     syllables,
     usdb,
@@ -35,29 +35,24 @@ from usdx_dl import (
     whisper,
     youtube,
 )
-from usdx_dl.models import PitchedData, SongMetadata, TranscribedData
+from usdx_dl.models import (
+    Force,
+    PipelineContext,
+    PitchedData,
+    SongMetadata,
+    TranscribedData,
+)
 
 __all__ = ["main", "Force"]
 
 
-class Force(StrEnum):
-    """Argument value for ``--force``."""
-
-    CLEAN = "clean"
-    ALL = "all"
-    DOWNLOAD = "download"
-    SPLIT_STEMS = "split-stems"
-    TRANSCRIBE = "transcribe"
-    DENOISE = "denoise"
-    PITCH = "pitch"
-    TXT = "txt"
-
-
 def main(source: str, **kwargs) -> None:
     """Args: See :func:`.args.parse`."""
+    kwargs["prompt"] = interactive.CliPrompt()
     if Path(source).is_file():
         batch_process(Path(source), **kwargs)
     else:
+        kwargs.pop("keep_going", None)
         run_pipeline(url_or_id=source, **kwargs)
 
 
@@ -118,9 +113,14 @@ def __print_batch_status(msg: str) -> None:
     print(f"{ansi.MAGENTA}[BATCH] {msg}{ansi.RESET}")
 
 
+def ctx_uuid() -> str:
+    """Generate a unique ID for the pipeline context."""
+    return str(uuid.uuid4())
+
+
 def run_pipeline(
     url_or_id: str,
-    usdb_cookie: str,
+    usdb_cookie: str | None,
     output_dir: Path,
     models_dir: Path,
     stem_model: str,
@@ -128,76 +128,127 @@ def run_pipeline(
     sample_rate: int,
     vocals_gain: float,
     phrase_correction: float,
-    force: Force,
+    force: Force | None,
     no_lyrics: bool,
     no_video: bool,
     non_interactive: bool,
+    prompt: interactive.Prompt,
 ) -> None:
     """Args: See :func:`.args.parse`."""
-    global __step_count  # pylint: disable=global-statement
-    __step_count = 0
-    os.environ["TORCH_HOME"] = str(models_dir / "torch")
-    os.environ["HF_HOME"] = str(models_dir / "hf")
 
+    ctx = PipelineContext(
+        uuid=ctx_uuid(),
+        url_or_id=url_or_id,
+        usdb_cookie=usdb_cookie,
+        output_dir=output_dir,
+        models_dir=models_dir,
+        stem_model=stem_model,
+        whisper_model=whisper_model,
+        sample_rate=sample_rate,
+        vocals_gain=vocals_gain,
+        phrase_correction=phrase_correction,
+        force=force,
+        no_lyrics=no_lyrics,
+        no_video=no_video,
+        non_interactive=non_interactive,
+    )
+    prepare(ctx, prompt)
+    process(ctx)
+
+
+class SongPaths:
+    """Paths to all relevant files for a song."""
+
+    def __init__(self, output_dir: Path):
+        self.output_dir = output_dir
+        self.tmp_dir = output_dir / "tmp"
+        self.song_orig_txt = self.tmp_dir / "song.usdb"
+        self.song_gen_txt = self.tmp_dir / "song.gen"
+        self.song_txt = output_dir / "song.txt"
+        self.meta = output_dir / "metadata.json"
+        self.lyrics = self.tmp_dir / "lyrics.txt"
+        self.cover = output_dir / "cover.jpg"
+        self.bg = output_dir / "background.jpg"
+        self.video = output_dir / "video.mp4"
+        self.audio = output_dir / "audio.mp3"
+        self.language = self.tmp_dir / "language.txt"
+        self.transcription = self.tmp_dir / "transcription.json"
+        self.pitch = self.tmp_dir / "pitch.json"
+        self.vocals = output_dir / "vocals.mp3"
+        self.vocals_denoised = self.tmp_dir / "vocals_denoised.mp3"
+        self.vocals_muted = self.tmp_dir / "vocals_muted.mp3"
+        self.instrumental = output_dir / "instrumental.mp3"
+
+    def mkdirs(self):
+        """Create all necessary directories."""
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def clean(self):
+        """Remove all files in the output directory."""
+        if self.output_dir.exists():
+            shutil.rmtree(self.output_dir)
+
+    def name_path(self, artist: str, title: str) -> Path:
+        """Get the path to the file that contains the song name."""
+        return self.output_dir / re.sub(
+            r"[^a-zA-Z0-9 _\-.,@()\[\]]",
+            "",
+            f"@ {artist} - {title}",
+        )
+
+
+def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
+    """Prepare a download request by collecting necessary metadata."""
     # detect if we start from USDB or YouTube
-    if "usdb.animux.de" in url_or_id or url_or_id.isdigit():
-        if not usdb_cookie:
-            usdb_cookie = config.get("usdb_cookie")
-            if not usdb_cookie:
-                if non_interactive:
-                    raise RuntimeError("Cannot continue without --usdb-cookie.")
-                usdb_cookie = input(f"PHPSESSID cookie from {usdb.APIClient.URL}: ")
-                if len(usdb_cookie.replace("PHPSESSID=", "")) < 22:
+    if "usdb.animux.de" in ctx.url_or_id or ctx.url_or_id.isdigit():
+        if not ctx.usdb_cookie:
+            ctx.usdb_cookie = config.get("usdb_cookie")
+            if not ctx.usdb_cookie:
+                if ctx.non_interactive:
+                    raise RuntimeError(
+                        "Cannot continue without the PHPSESSID cookie from "
+                        f"{usdb.APIClient.URL}."
+                    )
+                ctx.usdb_cookie = prompt.string(
+                    f"PHPSESSID cookie from {usdb.APIClient.URL}: "
+                )
+                if len(ctx.usdb_cookie.replace("PHPSESSID=", "")) < 22:
                     raise ValueError(
                         "Invalid PHPSESSID, must be at least 22 characters."
                     )
-        config.set("usdb_cookie", usdb_cookie)
-        usdb_client = usdb.APIClient(url_or_id, usdb_cookie)
+        config.set("usdb_cookie", ctx.usdb_cookie)
+        usdb_client = usdb.APIClient(ctx.url_or_id, ctx.usdb_cookie)
         yt_client = None
         song_id = str(usdb_client.id)
-    elif "youtube.com" in url_or_id or re.match(r"^[\w_-]{11}$", url_or_id):
+    elif "youtube.com" in ctx.url_or_id or re.match(r"^[\w_-]{11}$", ctx.url_or_id):
         usdb_client = None
-        yt_client = youtube.APIClient(url_or_id)
+        yt_client = youtube.APIClient(ctx.url_or_id)
         song_id = yt_client.id
     else:
-        raise ValueError(f"Invalid URL or ID: {url_or_id}")
+        raise ValueError(f"Invalid URL or ID: {ctx.url_or_id}")
 
     # output paths
-    output_dir /= str(song_id)
-    tmp_dir = output_dir / "tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    song_orig_txt_path = tmp_dir / "song.usdb"
-    song_gen_txt_path = tmp_dir / "song.gen"
-    song_txt_path = output_dir / "song.txt"
-    meta_path = output_dir / "metadata.json"
-    lyrics_path = tmp_dir / "lyrics.txt"
-    cover_path = output_dir / "cover.jpg"
-    bg_path = output_dir / "background.jpg"
-    video_path = output_dir / "video.mp4"
-    audio_path = output_dir / "audio.mp3"
-    language_path = tmp_dir / "language.txt"
-    transcription_path = tmp_dir / "transcription.json"
-    pitch_path = tmp_dir / "pitch.json"
-    vocals_path = output_dir / "vocals.mp3"
-    vocals_denoised_path = tmp_dir / "vocals_denoised.mp3"
-    vocals_muted_path = tmp_dir / "vocals_muted.mp3"
-    instrumental_path = output_dir / "instrumental.mp3"
-    if force == Force.CLEAN and output_dir.exists():
-        shutil.rmtree(output_dir)
+    ctx.output_dir /= str(song_id)
+    paths = SongPaths(ctx.output_dir)
+    paths.mkdirs()
+    if ctx.force == Force.CLEAN and ctx.output_dir.exists():
+        paths.clean()
 
     if usdb_client is not None:
         __print_step("Downloading TXT from USDB")
+        t = perf_counter()
         # download lyrics/txt file from USDB
-        if should_run(song_orig_txt_path, force, Force.DOWNLOAD):
+        if should_run(paths.song_orig_txt, ctx.force, Force.DOWNLOAD):
             txt = usdb_client.fetch_txt()
             if txt is None:
                 config.unset("usdb_cookie")
-                raise RuntimeError(f"Failed to fetch TXT for {url_or_id}")
-            song_orig_txt_path.write_text(txt, "utf-8")
-            __print_time()
+                raise RuntimeError(f"Failed to fetch TXT for {ctx.url_or_id}")
+            paths.song_orig_txt.write_text(txt, "utf-8")
+            __print_time(perf_counter() - t)
         else:
-            txt = song_orig_txt_path.read_text("utf-8")
-            __print_cached(song_orig_txt_path)
+            txt = paths.song_orig_txt.read_text("utf-8")
+            __print_cached(paths.song_orig_txt)
 
         # parse metadata
         song_meta = usdx_format.parse_metadata(txt)
@@ -212,52 +263,148 @@ def run_pipeline(
             yt_client = youtube.APIClient(yt_id)
         else:
             yt_client = youtube.search(f"{song_meta.artist} {song_meta.title}")
+        song_meta.video_url = yt_client.url
 
     else:
         assert yt_client is not None
         song_meta = None
-        txt = None
 
     __print_step("Collecting song metadata")
-    if should_run(meta_path, force, Force.DOWNLOAD):
+    t = perf_counter()
+    if should_run(paths.meta, ctx.force, Force.DOWNLOAD):
         yt_meta = yt_client.get_metadata()
         if song_meta is None:
             song_meta = yt_meta
         else:
             song_meta.merge_(yt_meta)
-        if not non_interactive:
-            print("Please check the following metadata")
-            song_meta.artist = (
-                input(f"- Artist [{ansi.BOLD}{song_meta.artist}{ansi.RESET}]: ")
-                or song_meta.artist
-            )
-            song_meta.title = (
-                input(f"- Title [{ansi.BOLD}{song_meta.title}{ansi.RESET}]: ")
-                or song_meta.title
-            )
+        if not ctx.non_interactive:
+            print("Please check the following metadata:")
+            song_meta.artist = prompt.string("Artist", default=song_meta.artist)
+            song_meta.title = prompt.string("Title", default=song_meta.title)
             if usdb_client is not None:
-                song_meta.video_url = (
-                    input(
-                        f"- YouTube URL [{ansi.BOLD}{song_meta.video_url}{ansi.RESET}] "
-                        f"{ansi.DIM}({yt_client.describe()}){ansi.RESET}: "
-                    )
-                    or song_meta.video_url
+                new_video_url = prompt.string(
+                    "YouTube URL",
+                    default=song_meta.video_url,
+                    description=yt_client.describe(),
                 )
-        song_meta.serialize(meta_path)
-        __print_time()
+                if new_video_url != song_meta.video_url:
+                    yt_client = youtube.APIClient(new_video_url)
+                    song_meta.video_url = yt_client.url
+                    yt_meta = yt_client.get_metadata()
+                    song_meta.bg_url = yt_meta.bg_url
+                    if yt_client.is_youtube_url(song_meta.cover_url):
+                        song_meta.cover_url = yt_meta.cover_url
+        else:
+            ctx.reviewed = False
+        models.to_json(song_meta, paths.meta)
+        __print_time(perf_counter() - t)
     else:
-        song_meta = SongMetadata.load(meta_path)
-        __print_cached(meta_path)
+        song_meta = models.from_json(SongMetadata, paths.meta)
+        __print_cached(paths.meta)
+    ctx.meta = song_meta
     print(song_meta)
-    print(f"Saving files to {output_dir}")
-    name_path = output_dir / re.sub(
-        r"[^a-zA-Z0-9 _\-.,@()\[\]]", "", f"@ {song_meta.artist} - {song_meta.title}"
-    )
-    name_path.touch()  # create empty file to make the name visible in file explorers
+
+    # find lyrics
+    if not paths.song_orig_txt.exists() and not ctx.no_lyrics:
+        __print_step("Downloading lyrics")
+        t = perf_counter()
+        if should_run(paths.lyrics, ctx.force, Force.DOWNLOAD):
+            lyrics_sync = lyrics.search(song_meta.artist, song_meta.title, synced=True)
+            if lyrics_sync is None:
+                print("No lyrics found.")
+                if not ctx.non_interactive:
+                    google_url = "https://www.google.com/search?q=" + quote_plus(
+                        f'{song_meta.artist} {song_meta.title} lyrics "lrc"'
+                    )
+                    print(f"Search for them on Google: {google_url}")
+                    lyrics_sync = prompt.multiline(
+                        "Then paste the synched lyrics (LRC format) here "
+                        "[empty to skip]."
+                    )
+                    if lyrics_sync.count("\n") >= 10:
+                        paths.lyrics.write_text(lyrics_sync, "utf-8")
+                    else:
+                        print("- skip -")
+            else:
+                if not ctx.non_interactive:
+                    print(lyrics_sync)
+                    if prompt.yes_no("Lyrics correct?", default=True):
+                        paths.lyrics.write_text(lyrics_sync, "utf-8")
+                    else:
+                        lyrics_sync = None
+                else:
+                    ctx.reviewed = False
+
+            __print_time(perf_counter() - t)
+        else:
+            lyrics_sync = paths.lyrics.read_text("utf-8")
+            __print_cached(paths.lyrics)
+
+        ctx.lyrics = lyrics_sync
+
+
+def update_metadata(ctx: PipelineContext) -> SongMetadata:
+    """Update song metadata with user changes."""
+    # merge user changes into metadata
+    paths = SongPaths(ctx.output_dir)
+    if not paths.meta.exists():
+        raise RuntimeError("PipelineContext is not properly initialized.")
+    song_meta = models.from_json(SongMetadata, paths.meta)
+
+    # check if video URL has changed and we need to update the background/cover images
+    video_changed = ctx.meta and ctx.meta.video_url != song_meta.video_url
+    song_meta.merge_(ctx.meta, override=True)
+    if song_meta.video_url is None:
+        raise RuntimeError(f"Failed to find YouTube for {ctx.url_or_id}.")
+    if video_changed:
+        yt_client = youtube.APIClient(song_meta.video_url)
+        yt_meta = yt_client.get_metadata()
+        song_meta.bg_url = yt_meta.bg_url
+        if yt_client.is_youtube_url(song_meta.cover_url):
+            song_meta.cover_url = yt_meta.cover_url
+
+    # check if the lyrics have changed
+    if ctx.lyrics:
+        current_lyrics = (
+            paths.lyrics.read_text("utf-8") if paths.lyrics.exists() else ""
+        )
+        if current_lyrics != ctx.lyrics:
+            paths.lyrics.write_text(ctx.lyrics, "utf-8")
+
+    models.to_json(song_meta, paths.meta)
+    return song_meta
+
+
+def process(ctx: PipelineContext) -> None:
+    """Process the song using the pipeline context. This function assumes that the
+    pipeline context has been properly initialized by :func:`prepare`."""
+    os.environ["TORCH_HOME"] = str(ctx.models_dir / "torch")
+    os.environ["HF_HOME"] = str(ctx.models_dir / "hf")
+
+    __print_step("Starting processing pipeline")
+    print(f"Saving files to {ctx.output_dir}")
+    paths = SongPaths(ctx.output_dir)
+    # context values take precedence over saved values
+    if ctx.meta:
+        models.to_json(ctx.meta, paths.meta)
+        song_meta = ctx.meta
+    elif paths.meta.exists():
+        song_meta = models.from_json(SongMetadata, paths.meta)
+    else:
+        raise RuntimeError("PipelineContext is not properly initialized.")
+    if song_meta.video_url is None:
+        raise RuntimeError(f"Failed to find YouTube for {ctx.url_or_id}.")
+    yt_client = youtube.APIClient(song_meta.video_url)
+    # create empty file to make the name visible in file explorers
+    paths.name_path(song_meta.artist, song_meta.title).touch()
+
+    if ctx.lyrics:
+        paths.lyrics.write_text(ctx.lyrics, "utf-8")
 
     # download cover image
     __print_step("Downloading cover and background image")
-    if song_meta.cover_url and should_run(cover_path, force, Force.DOWNLOAD):
+    t = perf_counter()
+    if song_meta.cover_url and should_run(paths.cover, ctx.force, Force.DOWNLOAD):
         with requests.get(song_meta.cover_url, timeout=30) as response:
             response.raise_for_status()
             cover = Image.open(io.BytesIO(response.content))
@@ -266,54 +413,54 @@ def run_pipeline(
         top = (cover.height - crop_size) // 2
         right = left + crop_size
         bottom = top + crop_size
-        with open(cover_path, "wb") as f:
+        with open(paths.cover, "wb") as f:
             cover.crop((left, top, right, bottom)).save(f)
         if not song_meta.bg_url:
-            __print_time()
+            __print_time(perf_counter() - t)
     elif song_meta.cover_url:
-        __print_cached(cover_path)
+        __print_cached(paths.cover)
     else:
         print("No cover found.")
-    if song_meta.bg_url and should_run(bg_path, force, Force.DOWNLOAD):
+    if song_meta.bg_url and should_run(paths.bg, ctx.force, Force.DOWNLOAD):
         with requests.get(song_meta.bg_url, timeout=30) as response:
             response.raise_for_status()
             background = Image.open(io.BytesIO(response.content))
-        with open(bg_path, "wb") as f:
+        with open(paths.bg, "wb") as f:
             background.save(f)
-        __print_time()
+        __print_time(perf_counter() - t)
     else:
-        __print_cached(bg_path)
+        __print_cached(paths.bg)
 
     # download audio/video from YouTube
-    if yt_client is None:
-        raise RuntimeError(f"Failed to find YouTube for {url_or_id}.")
-    if no_video:
+    t = perf_counter()
+    if ctx.no_video:
         __print_step("Downloading audio from YouTube")
     else:
         __print_step("Downloading video and audio from YouTube")
-        if should_run(video_path, force, Force.DOWNLOAD):
-            ok = yt_client.download_video(video_path)
+        if should_run(paths.video, ctx.force, Force.DOWNLOAD):
+            ok = yt_client.download_video(paths.video)
             if not ok:
                 raise RuntimeError(f"Failed to download YouTube video: {yt_client.url}")
         else:
-            __print_cached(video_path)
-    if should_run(audio_path, force, Force.DOWNLOAD):
-        ok = yt_client.download_audio(audio_path, sample_rate)
+            __print_cached(paths.video)
+    if should_run(paths.audio, ctx.force, Force.DOWNLOAD):
+        ok = yt_client.download_audio(paths.audio, ctx.sample_rate)
         if not ok:
             raise RuntimeError(f"Failed to download YouTube video: {yt_client.url}")
-        __print_time()
+        __print_time(perf_counter() - t)
     else:
-        __print_cached(audio_path)
+        __print_cached(paths.audio)
 
     # split vocals using AI model
-    __print_step(f"Splitting vocals and instrumental parts using {stem_model}")
-    if should_run(vocals_path, force, Force.SPLIT_STEMS):
+    __print_step(f"Splitting vocals and instrumental parts using {ctx.stem_model}")
+    t = perf_counter()
+    if should_run(paths.vocals, ctx.force, Force.SPLIT_STEMS):
         separator = Separator(
             log_level=logging.INFO,
-            model_file_dir=(models_dir / "separator").as_posix(),
-            output_dir=output_dir.as_posix(),
-            output_format=vocals_path.suffix[1:],
-            sample_rate=sf.info(audio_path).samplerate,
+            model_file_dir=(ctx.models_dir / "separator").as_posix(),
+            output_dir=paths.tmp_dir.as_posix(),
+            output_format=paths.vocals.suffix[1:],
+            sample_rate=sf.info(paths.audio).samplerate,
         )
         model_name_mapping = {
             # cSpell: disable
@@ -321,7 +468,7 @@ def run_pipeline(
             "mel-roformer": "mel_band_roformer_karaoke_becruily.ckpt",
             # cSpell: enable
         }
-        separator.load_model(model_name_mapping[stem_model])
+        separator.load_model(model_name_mapping[ctx.stem_model])
         output_names = {
             "Vocals": "vocals",
             "Instrumental": "instrumental",
@@ -329,145 +476,109 @@ def run_pipeline(
             "Bass": "bass",
             "Other": "other",
         }
-        separator.separate(audio_path.as_posix(), output_names)
-        if stem_model in ["demucs"]:
+        separator.separate(paths.audio.as_posix(), output_names)
+        (paths.tmp_dir / f"vocals.{paths.vocals.suffix[1:]}").rename(paths.vocals)
+        if ctx.stem_model in ["demucs"]:
             stem_names = {
                 "demucs": ["drums", "bass", "other"],
-            }[stem_model]
+            }[ctx.stem_model]
             stem_paths = [
-                output_dir / f"{stem}.{vocals_path.suffix[1:]}" for stem in stem_names
+                paths.tmp_dir / f"{stem}.{paths.vocals.suffix[1:]}"
+                for stem in stem_names
             ]
             stems = [sf.read(p) for p in stem_paths]
-            assert all(sr == sample_rate for _, sr in stems), (
+            assert all(sr == ctx.sample_rate for _, sr in stems), (
                 f"Sample rates don't match: {[sr for _, sr in stems]}"
             )
             instrumental = sum(data for data, _ in stems)
             instrumental = np.clip(instrumental, -1.0, 1.0)
-            sf.write(instrumental_path, instrumental, sample_rate)  # type: ignore
+            sf.write(paths.instrumental, instrumental, ctx.sample_rate)  # type: ignore
             for p in stem_paths:
                 p.unlink()
 
-        __print_time()
+        __print_time(perf_counter() - t)
     else:
-        __print_cached(vocals_path)
-        __print_cached(instrumental_path)
+        __print_cached(paths.vocals)
+        __print_cached(paths.instrumental)
 
-    if vocals_gain > 0:
-        vocals, _ = sf.read(vocals_path)
-        instrumental, _ = sf.read(instrumental_path)
-        instrumental_plus_vocals = instrumental + vocals_gain * vocals
-        instrumental_path = instrumental_path.with_stem(
-            instrumental_path.stem + f"_{vocals_gain}x_vocals"
+    if ctx.vocals_gain > 0:
+        vocals, _ = sf.read(paths.vocals)
+        instrumental, _ = sf.read(paths.instrumental)
+        instrumental_plus_vocals = instrumental + ctx.vocals_gain * vocals
+        paths.instrumental = paths.instrumental.with_stem(
+            paths.instrumental.stem + f"_{ctx.vocals_gain}x_vocals"
         )
-        sf.write(instrumental_path, instrumental_plus_vocals, sample_rate)
+        sf.write(paths.instrumental, instrumental_plus_vocals, ctx.sample_rate)
 
-    if txt is None:
-        # find lyrics
-        if not no_lyrics:
-            __print_step("Downloading lyrics")
-            if should_run(lyrics_path, force, Force.DOWNLOAD):
-                lyrics_sync = lyrics.search(
-                    song_meta.artist, song_meta.title, synced=True
-                )
-                if lyrics_sync is None:
-                    print("No lyrics found.")
-                    if not non_interactive:
-                        google_url = "https://www.google.com/search?q=" + quote_plus(
-                            f'{song_meta.artist} {song_meta.title} lyrics "lrc"'
-                        )
-                        print(f"Search for them on Google: {google_url}")
-                        print(
-                            "Then paste the synched lyrics (LRC format) here [empty to skip]:"
-                        )
-                        lines: list[str] = []
-                        while True:
-                            line = input().strip()
-                            if line == "" and len(lines) > 0 and lines[-1] == "":
-                                break
-                            lines.append(line)
-                        if len(lines) >= 10:
-                            lyrics_sync = "\n".join(lines).strip()
-                            lyrics_path.write_text(lyrics_sync)
-                        else:
-                            print("- skip -")
-                else:
-                    print(lyrics_sync)
-                    ok = non_interactive or input(
-                        "Lyrics correct? ([y]/n): "
-                    ).lower().strip() in ("y", "yes", "")
-                    if ok:
-                        lyrics_path.write_text(lyrics_sync)
-                    else:
-                        lyrics_sync = None
-                __print_time()
-            else:
-                lyrics_sync = lyrics_path.read_text()
-                __print_cached(lyrics_path)
-
+    if paths.song_orig_txt.exists():
+        txt = paths.song_orig_txt.read_text("utf-8")
+    else:
         # preprocess vocals audio
         __print_step("Denoising vocals stem")
-        if should_run(vocals_denoised_path, force, Force.DENOISE) or should_run(
-            vocals_muted_path, force, Force.DENOISE
+        t = perf_counter()
+        if should_run(paths.vocals_denoised, ctx.force, Force.DENOISE) or should_run(
+            paths.vocals_muted, ctx.force, Force.DENOISE
         ):
             ok = ffmpeg.denoise_vocal_audio(
-                vocals_path, vocals_denoised_path, mono=True
+                paths.vocals, paths.vocals_denoised, mono=True
             )
             if not ok:
                 raise RuntimeError("Denoising vocals with ffmpeg failed.")
-            silence.mute_non_singing_parts(vocals_denoised_path, vocals_muted_path)
-            __print_time()
+            silence.mute_non_singing_parts(paths.vocals_denoised, paths.vocals_muted)
+            __print_time(perf_counter() - t)
         else:
-            __print_cached(vocals_denoised_path)
+            __print_cached(paths.vocals_denoised)
 
         # transcribe audio
-        __print_step(f"Transcribing audio using whisperx ({whisper_model})")
-        if should_run(transcription_path, force, Force.TRANSCRIBE):
+        __print_step(f"Transcribing audio using whisperx ({ctx.whisper_model})")
+        t = perf_counter()
+        if should_run(paths.transcription, ctx.force, Force.TRANSCRIBE):
             language, transcribed_data = whisper.transcribe(
-                audio_path=vocals_muted_path,
-                lyrics_path=None if no_lyrics else lyrics_path,
-                model_arch=whisper_model,
+                audio_path=paths.vocals_muted,
+                lyrics_path=None if ctx.no_lyrics else paths.lyrics,
+                model_arch=ctx.whisper_model,
             )
             if len(transcribed_data) == 0:
                 raise RuntimeError("Transcription failed.")
-            transcription_path.write_text(
-                json.dumps([asdict(i) for i in transcribed_data], indent=2)
-            )
-            language_path.write_text(language)
-            __print_time()
+            models.to_json(transcribed_data, paths.transcription)
+            paths.language.write_text(language)
+            __print_time(perf_counter() - t)
         else:
-            transcribed_data = [
-                TranscribedData(**i) for i in json.loads(transcription_path.read_text())
-            ]
-            language = language_path.read_text().strip()
-            __print_cached(language_path)
-            __print_cached(transcription_path)
+            transcribed_data = models.from_json(
+                list[TranscribedData], paths.transcription
+            )
+            language = paths.language.read_text().strip()
+            __print_cached(paths.language)
+            __print_cached(paths.transcription)
 
         # detect musical properties
         __print_step("Detecting pitch using swift-f0")
-        bpm = usdx.detect_bpm(audio_path)
+        t = perf_counter()
+        bpm = usdx.detect_bpm(paths.audio)
         print(f"BPM: {bpm:.1f}")
-        detected_key, detected_mode = usdx.detect_key(audio_path)
+        detected_key, detected_mode = usdx.detect_key(paths.audio)
         allowed_notes_for_key = usdx.get_allowed_notes_for_key(
             detected_key, detected_mode
         )
         print(f"Key: {detected_key} {detected_mode}")
-        if should_run(pitch_path, force, Force.PITCH):
-            pitched_data = usdx.detect_pitch(vocals_muted_path)
-            pitched_data.serialize(pitch_path)
-            __print_time()
+        if should_run(paths.pitch, ctx.force, Force.PITCH):
+            pitched_data = usdx.detect_pitch(paths.vocals_muted)
+            models.to_json(pitched_data, paths.pitch)
+            __print_time(perf_counter() - t)
         else:
-            pitched_data = PitchedData.load(pitch_path)
-            __print_cached(pitch_path)
+            pitched_data = models.from_json(PitchedData, paths.pitch)
+            __print_cached(paths.pitch)
 
         # generate TXT in UltraStar format
         __print_step("Generating UltraStar TXT file")
-        if should_run(song_gen_txt_path, force, Force.TXT):
+        t = perf_counter()
+        if should_run(paths.song_gen_txt, ctx.force, Force.TXT):
             # hyphens.remove_punctuation_(transcribed_data, '.,"')
             transcribed_data = hyphens.hyphenate_transcription(
                 transcribed_data, language
             )
             transcribed_data = silence.remove_from_transcription(
-                vocals_path, transcribed_data
+                paths.vocals, transcribed_data
             )
             transcribed_data = syllables.split_into_segments(transcribed_data, bpm)
             midi_segments = usdx.create_midi_segments(
@@ -476,51 +587,52 @@ def run_pipeline(
             midi_segments, transcribed_data = syllables.merge_segments(
                 midi_segments, transcribed_data, bpm
             )
-            if not no_lyrics and lyrics_path.exists():
-                phrase_splits = [t for t, _ in lyrics.parse(lyrics_path.read_text())]
+            if not ctx.no_lyrics and paths.lyrics.exists():
+                phrase_splits = [t for t, _ in lyrics.parse(paths.lyrics.read_text())]
             else:
                 phrase_splits = None
             notes, bpm, gap = usdx.midi_to_ultrastar_txt(
-                midi_segments, bpm, phrase_splits, phrase_correction
+                midi_segments, bpm, phrase_splits, ctx.phrase_correction
             )
             txt = usdx_format.create(
                 notes=notes,
                 song_meta=song_meta,
                 bpm=bpm,
                 gap=gap,
-                audio_path=audio_path,
-                cover_path=cover_path,
-                vocals_path=vocals_path,
-                instrumental_path=instrumental_path,
+                audio_path=paths.audio,
+                cover_path=paths.cover,
+                vocals_path=paths.vocals,
+                instrumental_path=paths.instrumental,
             )
-            __print_time()
-            song_gen_txt_path.write_text(txt)
+            __print_time(perf_counter() - t)
+            paths.song_gen_txt.write_text(txt)
         else:
-            txt = song_gen_txt_path.read_text()
-            __print_cached(song_gen_txt_path)
+            txt = paths.song_gen_txt.read_text()
+            __print_cached(paths.song_gen_txt)
 
     __print_step("Producing final TXT file")
-    if cover_path.exists():
-        txt = usdx_format.update_metadata(txt, {"COVER": cover_path.name})
-    if bg_path.exists():
-        txt = usdx_format.update_metadata(txt, {"BACKGROUND": bg_path.name})
-    if video_path.exists():
-        txt = usdx_format.update_metadata(txt, {"VIDEO": video_path.name})
+    t = perf_counter()
+    if paths.cover.exists():
+        txt = usdx_format.update_metadata(txt, {"COVER": paths.cover.name})
+    if paths.bg.exists():
+        txt = usdx_format.update_metadata(txt, {"BACKGROUND": paths.bg.name})
+    if paths.video.exists():
+        txt = usdx_format.update_metadata(txt, {"VIDEO": paths.video.name})
     txt = usdx_format.update_metadata(
         txt,
         {
-            "MP3": audio_path.name,
-            "AUDIO": audio_path.name,
-            "VOCALS": vocals_path.name,
-            "INSTRUMENTAL": instrumental_path.name,
+            "MP3": paths.audio.name,
+            "AUDIO": paths.audio.name,
+            "VOCALS": paths.vocals.name,
+            "INSTRUMENTAL": paths.instrumental.name,
         },
     )
-    song_txt_path.write_text(txt, "utf-8")
+    paths.song_txt.write_text(txt, "utf-8")
 
     # print final result
     __print_step("Done")
     stats: list[tuple[str, str]] = []
-    for p in sorted(output_dir.glob("*")):
+    for p in sorted(ctx.output_dir.glob("*")):
         if p.is_file():
             stats.append((str(p), fmt.bytes(p.stat().st_size)))
     c1 = max(len(p) for p, _ in stats) + 4
@@ -528,33 +640,29 @@ def run_pipeline(
     for s1, s2 in stats:
         print(f"{s1:{c1}s}{s2:>{c2}s}")
     output_dir_size = sum(
-        f.stat().st_size for f in output_dir.glob("**/*") if f.is_file()
+        f.stat().st_size for f in ctx.output_dir.glob("**/*") if f.is_file()
     )
     print("-" * (c1 + c2))
     print(f"{ansi.BOLD}Total: {fmt.bytes(output_dir_size):>{c1 + c2 - 7}s}{ansi.RESET}")
 
 
-def should_run(output_file: Path | str, force_arg: Force, *force_types: Force) -> bool:
+def should_run(
+    output_file: Path | str,
+    force_arg: Force | None,
+    *force_types: Force,
+) -> bool:
     """Helper to only run certain parts of the pipeline of either the output file
     doesn't exist or the ``--force`` flag is set."""
     return not Path(output_file).exists() or force_arg in ("all", *force_types)
 
 
-__step_count: int = 0  # pylint: disable=invalid-name
-__step_start: float
-
-
 def __print_step(step: str) -> None:
     """Print pipeline step header."""
-    global __step_count, __step_start  # pylint: disable=global-statement
-    __step_count += 1
-    __step_start = perf_counter()
-    print(f"{ansi.CYAN}{ansi.BOLD}[ {__step_count}. {step} ]{ansi.RESET}")
+    print(f"{ansi.CYAN}{ansi.BOLD}[ {step} ]{ansi.RESET}")
 
 
-def __print_time() -> None:
+def __print_time(elapsed: float) -> None:
     """Print step timing."""
-    elapsed = perf_counter() - __step_start
     print(f"{ansi.DIM}~~> Took {fmt.time(elapsed)}{ansi.RESET}")
 
 

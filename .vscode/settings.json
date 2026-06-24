@@ -1,4 +1,9 @@
 {
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "ltex.enabled": false,
   "cSpell.customDictionaries": {
     "usdx-dl": {
       "name": "usdx-dl",
@@ -9,5 +14,6 @@
   },
   "python.testing.pytestArgs": ["usdx_dl"],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "js/ts.format.semicolons": "remove"
 }

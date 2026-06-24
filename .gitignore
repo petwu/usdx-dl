@@ -11,6 +11,7 @@
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 !.vscode/*.txt
+data/
 songs/
 out/
 output/

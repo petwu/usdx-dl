@@ -1,0 +1,33 @@
+export type SongMetadata = {
+  title: string
+  artist: string
+  year: number
+  genre: string | null
+  language: string | null
+  usdbUrl: string | null
+  videoUrl: string | null
+  coverUrl: string | null
+  bgUrl: string | null
+}
+
+export type Settings = {
+  usdbCookie: string | null
+  stemModel: string
+  whisperModel: string
+  noLyrics: boolean
+  noVideo: boolean
+  pauseProcessing: boolean
+}
+
+export type PipelineContext = {
+  uuid: string
+  lyrics: string | null
+  meta: SongMetadata
+  reviewed: boolean | null
+  errors: string[] | null
+}
+
+export type ServerState = {
+  processing: PipelineContext | null
+  queue: PipelineContext[]
+}

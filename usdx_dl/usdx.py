@@ -133,7 +133,11 @@ def detect_pitch(audio_path: Path | str) -> PitchedData:
     frequencies = [float(f) for f in result.pitch_hz]
     confidence = [float(c) for c in result.confidence]
 
-    return PitchedData(times, frequencies, confidence)
+    return PitchedData(
+        times=times,
+        frequencies=frequencies,
+        confidence=confidence,
+    )
 
 
 def create_midi_segments(
@@ -207,7 +211,7 @@ def create_midi_note_from_pitched_data(
     if allowed_notes is not None:
         note = quantize_note_to_key(note, allowed_notes)
 
-    return MidiSegment(note, start_time, end_time, word)
+    return MidiSegment(note=note, start=start_time, end=end_time, word=word)
 
 
 def quantize_note_to_key(note: str, allowed_notes: set[str]) -> str:

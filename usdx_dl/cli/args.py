@@ -41,10 +41,12 @@ def parse(
     subparsers = parser.add_subparsers(dest="cmd", title="subcommands", required=True)
     parser_dl = subparsers.add_parser("download", help="download a song (default)")
     parser_ls = subparsers.add_parser("list", help="list all songs")
+    parser_web = subparsers.add_parser("web", help="run the web UI")
     parser_v = subparsers.add_parser("version", help=version_action.help)
     assert default_subcmd in subparsers.choices.keys()
     parser_dl.set_defaults(func=cli.download.main)
     parser_ls.set_defaults(func=cli.list.main)
+    parser_web.set_defaults(func=cli.web.main)
     parser_v.set_defaults(func=lambda: version_action(parser, argparse.Namespace(), []))
 
     parser_dl.add_argument(
@@ -60,7 +62,7 @@ def parse(
         type=str,
         help="USDB login session cookie for API requests.",
     )
-    for p in [parser_dl, parser_ls]:
+    for p in [parser_dl, parser_ls, parser_web]:
         p.add_argument(
             "-o",
             "--output-dir",
@@ -69,13 +71,14 @@ def parse(
             default="songs",
             help="Output directory. (default: %(default)s)",
         )
-    parser_dl.add_argument(
-        "-m",
-        "--models-dir",
-        type=Path,
-        default=Path(__file__).parent.parent / ".models",
-        help="Model cache directory. (default: %(default)s)",
-    )
+    for p in [parser_dl, parser_web]:
+        p.add_argument(
+            "-m",
+            "--models-dir",
+            type=Path,
+            default=Path(__file__).parent.parent / ".models",
+            help="Model cache directory. (default: %(default)s)",
+        )
     parser_dl.add_argument(
         "-s",
         "--stem-model",
@@ -174,6 +177,44 @@ def parse(
         "--reverse",
         action="store_true",
         help="Inverse the sorting order.",
+    )
+
+    parser_web.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host to run the web UI on. Use '0.0.0.0' or '::' to make it "
+        "available on your local network. (default: %(default)s)",
+    )
+    parser_web.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to run the web UI on. (default: %(default)s)",
+    )
+    parser_web.add_argument(
+        "--data-dir",
+        type=Path,
+        default=Path("data"),
+        help="Data directory for the web UI. (default: %(default)s)",
+    )
+    parser_web.add_argument(
+        "--log-level",
+        type=str,
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="warning",
+        help="Server log level. Mostly for development/debugging. "
+        "(default: %(default)s)",
+    )
+    parser_web.add_argument(
+        "--tee",
+        action="store_true",
+        help="Print logs to stdout/stderr in addition to the web UI.",
+    )
+    parser_web.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Don't automatically open the web UI in default browser.",
     )
 
     # handle default subcommand

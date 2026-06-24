@@ -1,5 +1,6 @@
 """UltraStar DataBase API client."""
 
+import html
 import re
 from typing import Final
 
@@ -27,6 +28,7 @@ class APIClient:
         else:
             usdb_id = int(url_or_id)
 
+        cookie = cookie.strip("\"' ")
         if not cookie.startswith("PHPSESSID="):
             cookie = f"PHPSESSID={cookie}"
 
@@ -42,11 +44,23 @@ class APIClient:
             data={"wd": "1"},
             timeout=30,
         ) as response:
-            html = response.content.decode("utf-8")
-        match = re.search(r"<textarea[^>]*>([\s\S]*)<\/textarea>", html)
+            page_html = response.content.decode("utf-8")
+        if re.search(r"(please login|not logged in)", page_html, re.IGNORECASE):
+            raise RuntimeError(
+                f"Failed to fetch TXT file for {self.url}. "
+                "The PHPSESSID cookie is invalid or expired."
+            )
+        # cSpell: disable-next-line
+        if re.search(r"Datensatz nicht gefunden", page_html, re.IGNORECASE):
+            raise RuntimeError(
+                f"Failed to fetch TXT file for {self.url}. Song not found."
+            )
+        match = re.search(r"<textarea[^>]*>([\s\S]*)<\/textarea>", page_html)
         if not match:
             return None
-        return match.group(1)
+        txt = match.group(1)
+        txt = html.unescape(txt)  # replace &amp; and similar entities
+        return txt
 
     def cover_url(self) -> str:
         """URL to the cover image of the song."""
@@ -57,8 +71,8 @@ class APIClient:
         Typically, the TXT file and the GAP are synced for this version of the song."""
         with requests.get(f"{self.url}", timeout=30) as response:
             if response.ok:
-                html = response.content.decode("utf-8")
-                match = re.search(r"youtube.com/embed/([\w_-]+)", html)
+                page_html = response.content.decode("utf-8")
+                match = re.search(r"youtube.com/embed/([\w_-]+)", page_html)
                 if match:
                     return match.group(1)
         return None

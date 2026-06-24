@@ -70,6 +70,15 @@ class APIClient:
         duration = fmt.time(self.data["duration"], decimals=0)
         return f"{title} by {uploader} @ {duration}"
 
+    def is_youtube_url(self, url: str | None) -> bool:
+        """Check if a URL is a YouTube URL."""
+        if url is None:
+            return False
+        return (
+            re.match(r"^https?://((www\.)?youtube\.com/|i\.ytimg.com/)", url)
+            is not None
+        )
+
     def download_audio(self, path: Path | str, sample_rate: int) -> bool:
         """Download the audio of the video."""
         attempt = 0
