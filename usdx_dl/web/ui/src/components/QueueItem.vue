@@ -67,6 +67,7 @@ const emit = defineEmits<{
   (e: "update", item: PipelineContext, done: () => void): void
   (e: "remove", item: PipelineContext): void
   (e: "retry", item: PipelineContext): void
+  (e: "click-badge"): void
 }>()
 
 function deepEqual<T>(a: T, b: T): boolean {

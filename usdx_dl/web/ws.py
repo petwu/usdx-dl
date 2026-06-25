@@ -62,11 +62,17 @@ class ConnectionManager:
     async def _broadcast(self, msg_type: MsgType, data: Any) -> None:
         if msg_type == MsgType.LOG:
             assert isinstance(data, str)
-            override = data.startswith("\r") and not data.endswith("\n")
+            override = (
+                data.startswith("\r")
+                and len(self.log_buffer) > 0
+                and self.log_buffer[-1].endswith("\n")
+            )
             if override:
                 # handle progress bar updates (e.g. tqdm, yt-dlp) that overwrite
                 # the same line
-                data = data[1:] + "\n"
+                data = data[1:]
+                if not data.endswith("\n"):
+                    data += "\n"
                 self.log_buffer.pop()
             self.log_buffer.append(data)
             self.log_path.write_text("".join(self.log_buffer), encoding="utf-8")
@@ -151,6 +157,14 @@ def capture_output(loop: asyncio.AbstractEventLoop, log_path: Path, tee: bool = 
 
 
 router = APIRouter()
+
+
+@router.delete("/api/clear-log")
+async def api_clear_log():
+    """Clear the server log."""
+    if manager:
+        manager.log_buffer.clear()
+        manager.log_path.write_text("", encoding="utf-8")
 
 
 @router.websocket("/ws")

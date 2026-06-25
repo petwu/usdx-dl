@@ -23,6 +23,7 @@ import {
   Play,
   SendHorizontal,
   Text,
+  Trash2,
   TriangleAlert,
   Unplug,
   WrapText,
@@ -218,6 +219,11 @@ async function retryQueueItem(item: PipelineContext) {
   )
 }
 
+async function clearLog() {
+  logBuffer.value = []
+  await queueApiRequest(fetch(apiUrl("clear-log"), { method: "DELETE" }))
+}
+
 function connectWebSocket() {
   if (ws.value && ws.value.readyState === WebSocket.OPEN) {
     return
@@ -245,7 +251,9 @@ async function handleWebSocketMessage(msg: string) {
       case "log":
         const logLine = ansiToHtml(data.text)
         if (logBuffer.value.length > 0 && data.override) {
-          logBuffer.value[logBuffer.value.length - 1] = logLine.replace(/^\r+/, "")
+          logBuffer.value[logBuffer.value.length - 1] = logLine
+            .replace(/^\r+/, "")
+            .replace(/\n+$/, "")
         } else {
           logBuffer.value.push(logLine)
         }
@@ -327,7 +335,7 @@ onUnmounted(() => {
       </p>
       <p v-if="errors.length === 1" class="p-2 text-sm">{{ errors[0] }}</p>
       <ol v-else class="max-h-32 list-inside list-decimal overflow-y-auto p-2 text-sm">
-        <li v-for="(error, index) in errors" :key="index">{{ error }}</li>
+        <li v-for="error in errors">{{ error }}</li>
       </ol>
     </div>
     <div
@@ -348,9 +356,12 @@ onUnmounted(() => {
         <Button
           v-if="settings"
           size="icon"
+          :variant="settings?.pauseProcessing ? 'warning' : 'outline'"
           title="pause/resume processing"
           @click="settings.pauseProcessing = !settings.pauseProcessing"
-          class="size-8"
+          :class="
+            cn('size-9', settings?.pauseProcessing ? '' : 'bg-muted border-muted')
+          "
         >
           <Play v-if="settings?.pauseProcessing" />
           <Pause v-else />
@@ -369,9 +380,7 @@ onUnmounted(() => {
           <TriangleAlert :size="16" :stroke-width="2.5" class="mt-0.5" />
           <div>
             <p>Processing is paused ...</p>
-            <p v-if="state.processing">
-              (The currently processing item will be finished.)
-            </p>
+            <p v-if="state.processing">(The current item will be finished.)</p>
           </div>
         </div>
       </template>
@@ -390,31 +399,35 @@ onUnmounted(() => {
       </template>
       <TabContent id="tab-queue" class="min-h-0">
         <ScrollContainer direction="y" autoScroll="y" class="h-full">
-          <ul class="flex flex-col gap-2">
+          <TransitionGroup tag="ul" name="queue" class="relative block">
             <QueueItem
               v-if="state.processing"
               :item="state.processing"
               :isProcessing="true"
-              @click="activeTab = 'tab-output'"
+              @click-badge="activeTab = 'tab-output'"
             />
             <QueueItem
               v-for="(item, index) in state.queue"
+              :key="item.uuid"
               as="li"
               :index="index"
               :size="state.queue.length"
               :item="item"
               :disabled="inputDisabled"
+              class="not-first:mt-2"
               @remove="removeFromQueue"
               @move="moveQueueItem"
               @update="updateQueueItem"
               @retry="retryQueueItem"
             />
-          </ul>
+          </TransitionGroup>
         </ScrollContainer>
       </TabContent>
       <TabContent id="tab-songs" class="min-h-0">
         <ScrollContainer direction="y" class="h-full">
-          <ul
+          <TransitionGroup
+            tag="ul"
+            name="songs"
             class="xs:grid-cols-[repeat(auto-fit,minmax(320px,1fr))] grid grid-cols-1 gap-2"
           >
             <SongCard
@@ -423,26 +436,31 @@ onUnmounted(() => {
               :key="JSON.stringify(song)"
               :song="song"
             />
-          </ul>
+          </TransitionGroup>
         </ScrollContainer>
       </TabContent>
       <TabContent id="tab-output" class="min-h-0">
         <div
           class="bg-card relative h-full overflow-auto rounded border font-mono text-xs"
         >
-          <button
-            :class="
-              cn([
-                'absolute top-0 right-0',
-                'bg-card rounded-bl-lg border-b border-l px-3 py-2',
-              ])
-            "
-            title="wrap lines"
-            @click="wrapLog = !wrapLog"
-          >
-            <Text v-if="wrapLog" :size="16" />
-            <WrapText v-else :size="16" />
-          </button>
+          <div role="group" class="absolute top-0 right-0 z-10">
+            <button
+              class="bg-card rounded-bl-lg border-b border-l px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+              title="clear log"
+              :disabled="logBuffer.length === 0"
+              @click="clearLog()"
+            >
+              <Trash2 :size="16" />
+            </button>
+            <button
+              class="bg-card border-b border-l px-3 py-2"
+              title="wrap lines"
+              @click="wrapLog = !wrapLog"
+            >
+              <Text v-if="wrapLog" :size="16" />
+              <WrapText v-else :size="16" />
+            </button>
+          </div>
           <ScrollContainer direction="xy" autoScroll="y" class="h-full">
             <div
               :class="
@@ -454,7 +472,7 @@ onUnmounted(() => {
                 ])
               "
             >
-              <p v-for="(line, index) in logBuffer" :key="index" v-html="line" />
+              <p v-for="line in logBuffer" v-html="line" />
             </div>
           </ScrollContainer>
         </div>
@@ -624,5 +642,39 @@ onUnmounted(() => {
   height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+</style>
+
+<style scoped>
+/**
+ * <TransitionGroup> transitions
+ * https://vuejs.org/guide/built-ins/transition-group
+ */
+.queue-move,
+.queue-enter-active,
+.queue-leave-active {
+  position: relative;
+  transition: all 0.25s ease;
+}
+.queue-leave-active {
+  position: absolute;
+  width: 100%;
+}
+.queue-enter-from,
+.queue-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.songs-move,
+.songs-enter-active,
+.songs-leave-active {
+  position: relative;
+  transition: all 0.25s ease;
+}
+.songs-enter-from,
+.songs-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 </style>
