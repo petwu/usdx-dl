@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Logo from "#/logo.svg"
+import AppInstructions from "@/components/AppInstructions.vue"
 import AppSettings from "@/components/AppSettings.vue"
 import QueueItem from "@/components/QueueItem.vue"
 import ScrollContainer from "@/components/ScrollContainer.vue"
@@ -15,6 +16,7 @@ import { sref } from "@/lib/vue-utils"
 import type { PipelineContext, ServerState, Settings, SongMetadata } from "@/types/api"
 import {
   ChevronsLeftRightEllipsis,
+  HelpCircle,
   Pause,
   Play,
   SendHorizontal,
@@ -45,7 +47,7 @@ const errors = ref<string[]>([])
 const mounted = ref(false)
 const inputDisabled = ref<boolean>(false)
 const link = ref<string>("")
-const activeTab = sref<string>("tab:active", "tab-queue")
+const activeTab = sref<string>("tab:active", "tab-instructions")
 const songsFilter = sref<string>("songs:filter", "")
 const wrapLog = sref<boolean>("switch:wrap-log", false)
 
@@ -401,12 +403,18 @@ onUnmounted(() => {
           <Play v-if="settings?.pauseProcessing" />
           <Pause v-else />
         </Button>
-        <TabList class="w-full">
-          <TabTrigger id="tab-queue">Queue</TabTrigger>
-          <TabTrigger id="tab-songs">Songs</TabTrigger>
-          <TabTrigger id="tab-output">Output</TabTrigger>
-          <TabTrigger id="tab-settings">Settings</TabTrigger>
-        </TabList>
+        <div class="min-w-0 shrink grow overflow-x-auto whitespace-nowrap">
+          <TabList class="flex w-full min-w-fit">
+            <TabTrigger id="tab-queue">Queue</TabTrigger>
+            <TabTrigger id="tab-songs">Songs</TabTrigger>
+            <TabTrigger id="tab-output">Output</TabTrigger>
+            <TabTrigger id="tab-settings">Settings</TabTrigger>
+            <TabTrigger id="tab-instructions">
+              <HelpCircle class="text-blue-500 sm:hidden" />
+              <span class="max-sm:hidden">Instructions</span>
+            </TabTrigger>
+          </TabList>
+        </div>
       </div>
       <template v-if="activeTab === 'tab-queue' && settings?.pauseProcessing">
         <div
@@ -521,6 +529,11 @@ onUnmounted(() => {
             v-model:pin="pinValue"
             :pinValid="pinValid"
           />
+        </ScrollContainer>
+      </TabContent>
+      <TabContent id="tab-instructions" class="min-h-0">
+        <ScrollContainer direction="y" class="h-full">
+          <AppInstructions />
         </ScrollContainer>
       </TabContent>
     </Tabs>
