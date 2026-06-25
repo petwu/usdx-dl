@@ -16,6 +16,8 @@ hyphenator
 lrclib
 lucide
 mkdirs
+mypy
+numba
 nums
 onnxruntime
 petwu
@@ -24,6 +26,7 @@ pyhyphen
 pytest
 roformer
 samplerate
+sdist
 soundfile
 sref
 subcmd
@@ -37,6 +40,7 @@ usdb
 USDB
 usdx
 venv
+vite
 whisperx
 ytimg
 ytsearch

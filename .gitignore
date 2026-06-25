@@ -13,6 +13,7 @@
 !.vscode/*.txt
 data/
 songs/
+dist/
 out/
 output/
 build/
