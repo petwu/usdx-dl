@@ -20,7 +20,6 @@ nums
 onnxruntime
 petwu
 PHPSESSID
-pydub
 pyhyphen
 pytest
 roformer

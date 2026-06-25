@@ -5,7 +5,6 @@ from pathlib import Path
 
 import librosa
 import soundfile as sf
-from pydub import AudioSegment, silence
 
 from usdx_dl.models import TranscribedData
 
@@ -18,18 +17,27 @@ __all__ = [
 
 def get_sections(
     audio_path: Path | str,
-    min_silence_len: int = 50,
-    silence_thresh: int = -50,
+    top_db: int = 30,
 ) -> list[tuple[float, float]]:
     """Detect silent sections."""
-    y = AudioSegment.from_file(audio_path, format=Path(audio_path).suffix[1:])
-    s = silence.detect_silence(
-        y,
-        min_silence_len=min_silence_len,
-        silence_thresh=silence_thresh,
+    y, sr = librosa.load(audio_path)
+    non_silent_sections = (
+        librosa.effects.split(
+            y,
+            top_db=top_db,
+            frame_length=4096,
+            hop_length=1024,
+        )
+        / sr
     )
-    s = [((start / 1000), (end / 1000)) for start, end in s]  # convert to sec
-    return s
+    non_silent_sections = non_silent_sections.round(3).tolist()
+    silent_sections = [(0.0, non_silent_sections[0][0])]
+    for i in range(len(non_silent_sections) - 1):
+        silent_sections.append(
+            (non_silent_sections[i][1], non_silent_sections[i + 1][0])
+        )
+    silent_sections.append((non_silent_sections[-1][1], round(len(y) / sr, 3)))
+    return silent_sections
 
 
 def remove_from_transcription(

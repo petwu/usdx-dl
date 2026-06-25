@@ -9,7 +9,6 @@ dependencies = [
     "fastapi[standard]==0.138.0",
     "num2words",
     "onnxruntime",
-    "pydub",
     "pyhyphen",
     "pytest",
     "swift-f0",
@@ -49,7 +48,6 @@ module = [
     "audio_separator.*",
     "soundfile.*",
     "num2words.*",
-    "pydub.*",
     "hyphen.*",
 ]
 follow_untyped_imports = true
