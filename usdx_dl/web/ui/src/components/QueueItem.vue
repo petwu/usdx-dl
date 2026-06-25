@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import type { PipelineContext } from "@/types/api"
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowDown,
   ArrowDownToLine,
   ArrowUp,
@@ -93,6 +94,12 @@ function persistChanges(reviewed: boolean | undefined) {
   })
   editable.value = false
 }
+
+const lyricsSearchUrl = computed(
+  () =>
+    "https://www.google.com/search?q=" +
+    encodeURIComponent(`${meta.value.title} ${meta.value.artist} lyrics "lrc"`),
+)
 </script>
 
 <template>
@@ -123,7 +130,7 @@ function persistChanges(reviewed: boolean | undefined) {
         v-model="meta.title"
         :disabled="props.disabled"
         placeholder="Title"
-        class="my-0.5 h-7 p-1 text-base font-bold"
+        class="my-0.5 h-7 p-1 text-base font-bold ring-0!"
       />
       <p v-if="!editable" class="text-sm">{{ meta.artist }}</p>
       <Input
@@ -131,7 +138,7 @@ function persistChanges(reviewed: boolean | undefined) {
         placeholder="Artist"
         v-model="meta.artist"
         :disabled="props.disabled"
-        class="my-0.5 h-6 p-1 text-sm"
+        class="my-0.5 h-6 p-1 text-sm ring-0!"
       />
       <p class="text-muted-foreground text-sm italic">
         <span v-if="!editable">{{
@@ -146,19 +153,19 @@ function persistChanges(reviewed: boolean | undefined) {
             autocomplete="off"
             :disabled="props.disabled"
             placeholder="Year"
-            class="my-0.5 h-6 p-1 text-sm italic"
+            class="my-0.5 h-6 p-1 text-sm italic ring-0!"
           />
           <Input
             v-model="meta.genre"
             :disabled="props.disabled"
             placeholder="Genre"
-            class="my-0.5 h-6 p-1 text-sm italic"
+            class="my-0.5 h-6 p-1 text-sm italic ring-0!"
           />
           <Input
             v-model="meta.language"
             :disabled="props.disabled"
             placeholder="Language"
-            class="my-0.5 h-6 p-1 text-sm italic"
+            class="my-0.5 h-6 p-1 text-sm italic ring-0!"
           />
         </span>
       </p>
@@ -168,7 +175,7 @@ function persistChanges(reviewed: boolean | undefined) {
           :href="meta.videoUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="flex items-center gap-1 text-sm"
+          class="inline-flex items-center gap-1 text-sm"
         >
           <Play :size="16" />
           <template v-if="meta.videoUrl.match(youtubeRegex)">
@@ -181,20 +188,45 @@ function persistChanges(reviewed: boolean | undefined) {
           v-model="meta.videoUrl"
           :disabled="props.disabled"
           placeholder="Video URL"
-          class="my-0.5 h-6 p-1 text-sm"
+          class="my-0.5 h-6 p-1 text-sm ring-0!"
         />
       </p>
-      <Badge v-if="isProcessing" class="mt-2">
+      <Badge
+        v-if="!meta.usdbUrl"
+        variant="warning"
+        class="mt-1 inline-block whitespace-normal"
+      >
+        <AlertTriangle class="-mt-0.5 mr-0.5 inline" /> Requires transcription.
+        <strong>{{ lyrics ? "With lyrics." : "No lyrics." }}</strong>
+      </Badge>
+      <Badge
+        v-if="isProcessing"
+        variant="default"
+        class="my-1 cursor-pointer"
+        @click="$emit('click-badge')"
+      >
         <LoaderCircle class="animate-spin" /> Processing ...
       </Badge>
     </div>
-    <template v-if="!props.isProcessing && lyrics">
+    <template v-if="!props.isProcessing && !meta.usdbUrl">
       <div
         v-if="!editable"
         class="max-h-24 overflow-y-auto p-2 text-xs wrap-break-word whitespace-pre-wrap max-md:col-span-2 md:col-span-3"
       >
-        <p v-for="line in lyrics.split('\n')" :key="line">
-          {{ line }}
+        <p v-if="lyrics" v-for="line in lyrics.split('\n')" :key="line">{{ line }}</p>
+        <p v-else class="text-muted-foreground whitespace-normal italic">
+          No lyrics found. Please
+          <a :href="lyricsSearchUrl" target="_blank" rel="noopener noreferrer">
+            search for them on Google
+          </a>
+          then edit
+          <span class="whitespace-pre">[<Pencil class="inline size-3" />]</span>
+          the item and paste the synched lyrics (<a
+            href="https://en.wikipedia.org/wiki/LRC_(file_format)"
+            target="_blank"
+            rel="noopener noreferrer"
+            >LRC format</a
+          >).
         </p>
       </div>
       <Textarea

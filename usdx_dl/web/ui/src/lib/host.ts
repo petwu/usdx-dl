@@ -1,10 +1,17 @@
 function getHost(): URL {
-  return new URL(window.location.href)
+  const host = new URL(window.location.href)
+  if (import.meta.env.DEV) {
+    // during production, frontend and backend are served by the same server,
+    // but during development, the frontend may be served by a different server
+    // (e.g. vite dev server), so we need to adjust the port
+    host.port = "8000"
+  }
+  return host
 }
 
-export function apiUrl(): string {
+export function apiUrl(route: string): string {
   const host = getHost()
-  return new URL("api", host).toString()
+  return new URL(`api/${route}`, host).toString()
 }
 
 export function websocketUrl(): string {

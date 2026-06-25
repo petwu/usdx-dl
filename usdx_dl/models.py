@@ -1,6 +1,8 @@
 """Models shared by other modules."""
 
 import json
+import re
+import shutil
 from enum import StrEnum
 from pathlib import Path
 from typing import Self, Sequence, TypeVar
@@ -104,6 +106,57 @@ class SongMetadata(BaseModel):
             if override or (val_self == field.default and val_other != field.default):
                 setattr(self, name, val_other)
         return self
+
+
+class SongPaths:
+    """Paths to all relevant files for a song."""
+
+    def __init__(self, output_dir: Path):
+        self.output_dir = output_dir
+        self.tmp_dir = output_dir / "tmp"
+        self.song_orig_txt = self.tmp_dir / "song.usdb"
+        self.song_gen_txt = self.tmp_dir / "song.gen"
+        self.song_txt = output_dir / "song.txt"
+        self.meta = output_dir / "metadata.json"
+        self.lyrics = self.tmp_dir / "lyrics.txt"
+        self.cover = output_dir / "cover.jpg"
+        self.bg = output_dir / "background.jpg"
+        self.video = output_dir / "video.mp4"
+        self.audio = output_dir / "audio.mp3"
+        self.language = self.tmp_dir / "language.txt"
+        self.transcription = self.tmp_dir / "transcription.json"
+        self.pitch = self.tmp_dir / "pitch.json"
+        self.vocals = output_dir / "vocals.mp3"
+        self.vocals_denoised = self.tmp_dir / "vocals_denoised.mp3"
+        self.vocals_muted = self.tmp_dir / "vocals_muted.mp3"
+        self.instrumental = output_dir / "instrumental.mp3"
+
+    def mkdirs(self):
+        """Create all necessary directories."""
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def clean(self):
+        """Remove all files in the output directory."""
+        if self.output_dir.exists():
+            shutil.rmtree(self.output_dir)
+
+    def name_path(self, artist: str, title: str) -> Path:
+        """Get the path to the file that contains the song name."""
+        return self.output_dir / re.sub(
+            r"[^a-zA-Z0-9 _\-.,@()\[\]]",
+            "",
+            f"@ {artist} - {title}",
+        )
+
+    def is_complete(self) -> bool:
+        """Check if all necessary files are present."""
+        return (
+            self.song_txt.exists()
+            and self.audio.exists()
+            and self.cover.exists()
+            and self.meta.exists()
+        )
 
 
 class Force(StrEnum):

@@ -19,7 +19,7 @@ export type Settings = {
   pauseProcessing: boolean
 }
 
-export type PipelineContext = {
+export type PipelineContext = Omit<Settings, "pauseProcessing"> & {
   uuid: string
   lyrics: string | null
   meta: SongMetadata

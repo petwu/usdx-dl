@@ -104,7 +104,7 @@ async function addError(
 }
 
 async function fetchSettings() {
-  const response = await fetch(`${apiUrl()}/settings`)
+  const response = await fetch(apiUrl("settings"))
   if (response.ok) {
     settings.value = await response.json()
   } else {
@@ -113,7 +113,7 @@ async function fetchSettings() {
 }
 
 async function fetchState() {
-  const response = await fetch(`${apiUrl()}/state`)
+  const response = await fetch(apiUrl("state"))
   if (response.ok) {
     state.value = await response.json()
   } else {
@@ -122,7 +122,7 @@ async function fetchState() {
 }
 
 async function fetchSongs() {
-  const response = await fetch(`${apiUrl()}/songs`)
+  const response = await fetch(apiUrl("songs"))
   if (response.ok) {
     songs.value = await response.json()
   } else {
@@ -134,7 +134,7 @@ async function updateSettings(newSettings: Settings | null) {
   if (!newSettings) {
     return
   }
-  const response = await fetch(`${apiUrl()}/settings`, {
+  const response = await fetch(apiUrl("settings"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(newSettings),
@@ -163,7 +163,7 @@ async function addToQueue() {
     return
   }
   await queueApiRequest(
-    fetch(`${apiUrl()}/enqueue`, {
+    fetch(apiUrl("enqueue"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source: link.value }),
@@ -175,7 +175,7 @@ async function addToQueue() {
 
 async function removeFromQueue(item: PipelineContext) {
   await queueApiRequest(
-    fetch(`${apiUrl()}/dequeue`, {
+    fetch(apiUrl("dequeue"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
@@ -189,7 +189,7 @@ async function moveQueueItem(
   toEnd: boolean,
 ) {
   await queueApiRequest(
-    fetch(`${apiUrl()}/move`, {
+    fetch(apiUrl("move"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ item, direction, toEnd }),
@@ -199,7 +199,7 @@ async function moveQueueItem(
 
 async function updateQueueItem(item: PipelineContext, done: () => void) {
   await queueApiRequest(
-    fetch(`${apiUrl()}/update`, {
+    fetch(apiUrl("update"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
@@ -210,7 +210,7 @@ async function updateQueueItem(item: PipelineContext, done: () => void) {
 
 async function retryQueueItem(item: PipelineContext) {
   await queueApiRequest(
-    fetch(`${apiUrl}/retry`, {
+    fetch(apiUrl("retry"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
