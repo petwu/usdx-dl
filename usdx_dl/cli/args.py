@@ -89,7 +89,7 @@ def parse(
             "-m",
             "--models-dir",
             type=Path,
-            default=Path(__file__).parent.parent / ".models",
+            default=Path(__file__).parent.parent.parent / ".models",
             help="Model cache directory. (default: %(default)s)",
         )
     parser_dl.add_argument(

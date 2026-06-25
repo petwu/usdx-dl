@@ -1,5 +1,6 @@
 """CLI entry point."""
 
+import os
 import sys
 
 from usdx_dl import ansi, cli
@@ -9,6 +10,9 @@ def main():
     """Main function."""
     try:
         subcmd, args = cli.args.parse()
+        if models_dir := getattr(args, "models_dir", None):
+            os.environ["TORCH_HOME"] = f"{models_dir}/torch"
+            os.environ["HF_HOME"] = f"{models_dir}/hf"
         if callable(subcmd):
             subcmd(**vars(args))
         else:

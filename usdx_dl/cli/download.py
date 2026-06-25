@@ -337,9 +337,6 @@ def update_metadata(ctx: PipelineContext) -> SongMetadata:
 def process(ctx: PipelineContext) -> None:
     """Process the song using the pipeline context. This function assumes that the
     pipeline context has been properly initialized by :func:`prepare`."""
-    os.environ["TORCH_HOME"] = str(ctx.models_dir / "torch")
-    os.environ["HF_HOME"] = str(ctx.models_dir / "hf")
-
     __print_step("Starting processing pipeline")
     print(f"Saving files to {ctx.output_dir}")
     paths = SongPaths(ctx.output_dir)
@@ -436,7 +433,16 @@ def process(ctx: PipelineContext) -> None:
             "Other": "other",
         }
         separator.separate(paths.audio.as_posix(), output_names)
-        (paths.tmp_dir / f"vocals.{paths.vocals.suffix[1:]}").rename(paths.vocals)
+        tmp_vocals = paths.tmp_dir / f"vocals.{paths.vocals.suffix[1:]}"
+        if not tmp_vocals.exists():
+            raise RuntimeError(
+                f"Failed to separate vocals: {tmp_vocals} not found. "
+                "audio-separator may fail without an exception. "
+                "Please look at the output/logs for more information."
+            )
+        if paths.vocals.exists():
+            paths.vocals.unlink()
+        tmp_vocals.rename(paths.vocals)
         if ctx.stem_model in ["demucs"]:
             stem_names = {
                 "demucs": ["drums", "bass", "other"],

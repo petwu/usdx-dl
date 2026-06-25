@@ -9,6 +9,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "usdx_dl",
+      "cwd": "${workspaceFolder}",
       "args": ["https://www.youtube.com/watch?v=fOs0G3KLdY4", "-f", "txt"],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -18,6 +19,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "usdx_dl",
+      "cwd": "${workspaceFolder}",
       "args": ["web", "--tee", "--host", "0.0.0.0"],
       "console": "integratedTerminal",
       "justMyCode": false

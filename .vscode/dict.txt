@@ -39,6 +39,7 @@ ultrastardx
 usdb
 USDB
 usdx
+uvicorn
 venv
 vite
 whisperx
