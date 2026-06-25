@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from usdx_dl import ansi
+from usdx_dl.interactive import CliPrompt
 from usdx_dl.web import api, state, worker, ws
 
 
@@ -40,16 +41,25 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
 
 def main(**kwargs) -> None:
     """Args: See :func:`..cli.args.parse`."""
+    # initialize the server config, settings and state
     state.server_cfg = state.ServerConfig(**kwargs)
-    state.processing_state = state.ServerState.load()
     state.server_cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     state.server_cfg.log_path.write_text("", encoding="utf-8")
     if state.server_cfg.settings_path.exists():
         state.settings = state.Settings.load()
     else:
         state.settings = state.Settings()
-        state.settings.save()
+    if not state.server_cfg.unlocked_settings and state.settings.pin is None:
+        hint = CliPrompt.string(
+            "Set a numeric PIN for the settings page (leave blank to disable)",
+        ).strip()
+        if hint != "" and not hint.isdigit():
+            raise ValueError("PIN must be numeric.")
+        state.settings.pin = hint
+    state.settings.save()
+    state.processing_state = state.ServerState.load()
 
+    # instantiate the server and mount the routes
     app = FastAPI(lifespan=lifespan)
     app.include_router(api.router)
     app.include_router(ws.router)
@@ -63,13 +73,18 @@ def main(**kwargs) -> None:
     if state.server_cfg.ui_build_dir.exists():
         app.mount("/", StaticFiles(directory=state.server_cfg.ui_build_dir, html=True))
 
-    print(f"Web UI running at {ansi.CYAN}{state.server_cfg.url}{ansi.RESET}.")
+    # print startup messages
+    print(f"Web UI running at: {ansi.CYAN}{state.server_cfg.url}{ansi.RESET}")
     if state.server_cfg.host == "0.0.0.0":
         hostname = socket.gethostname()
         ip = socket.gethostbyname(hostname)
         lan_url = f"http://{ip}:{state.server_cfg.port}/"
-        print(f"Accessible on your local network at {ansi.CYAN}{lan_url}{ansi.RESET}.")
+        print(f"LAN-accessible at: {ansi.CYAN}{lan_url}{ansi.RESET}")
+    if not state.server_cfg.unlocked_settings and state.settings.pin:
+        hint = "*" * len(state.settings.pin)
+        print(f"{ansi.DIM}Settings page is protected by a PIN ({hint}).{ansi.RESET}")
 
+    # start the server
     uvicorn.run(
         app,
         host=state.server_cfg.host,

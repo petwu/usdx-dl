@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import Logo from "#/logo.svg"
+import AppSettings from "@/components/AppSettings.vue"
 import QueueItem from "@/components/QueueItem.vue"
 import ScrollContainer from "@/components/ScrollContainer.vue"
 import SongCard from "@/components/SongCard.vue"
 import ThemeSwitcher from "@/components/ThemeSwitcher.vue"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup } from "@/components/ui/radio-group"
-import RadioGroupItem from "@/components/ui/radio-group/RadioGroupItem.vue"
-import { Switch } from "@/components/ui/switch"
 import { TabContent, TabList, Tabs, TabTrigger } from "@/components/ui/tabs"
 import { ansiToHtml } from "@/lib/ansi"
 import { apiUrl, websocketUrl } from "@/lib/host"
@@ -18,7 +15,6 @@ import { sref } from "@/lib/vue-utils"
 import type { PipelineContext, ServerState, Settings, SongMetadata } from "@/types/api"
 import {
   ChevronsLeftRightEllipsis,
-  Info,
   Pause,
   Play,
   SendHorizontal,
@@ -38,6 +34,9 @@ const state = ref<ServerState>({ processing: null, queue: [] })
 const stateIntervalHandle = ref<number | null>(null)
 const settings = ref<Settings | null>(null)
 const settingsIntervalHandle = ref<number | null>(null)
+const updatingSettings = ref(false)
+const pinValue = sref<string>("settings:pin", "")
+const pinValid = ref<boolean | undefined>(undefined)
 const ws = ref<WebSocket | null>(null)
 const logBuffer = ref<string[]>([])
 const errors = ref<string[]>([])
@@ -45,7 +44,7 @@ const errors = ref<string[]>([])
 // UI state
 const mounted = ref(false)
 const inputDisabled = ref<boolean>(false)
-const link = ref<string>("https://usdb.animux.de/?link=detail&id=1234") // TODO
+const link = ref<string>("")
 const activeTab = sref<string>("tab:active", "tab-queue")
 const songsFilter = sref<string>("songs:filter", "")
 const wrapLog = sref<boolean>("switch:wrap-log", false)
@@ -62,7 +61,8 @@ const filteredSongs = computed(() => {
   )
 })
 
-watch(() => settings.value, updateSettings, { deep: true })
+watch(settings, () => updateSettings(false), { deep: true })
+watch(pinValue, () => updateSettings(true), { deep: true })
 
 async function addError(
   message: string,
@@ -131,18 +131,34 @@ async function fetchSongs() {
   }
 }
 
-async function updateSettings(newSettings: Settings | null) {
-  if (!newSettings) {
+async function updateSettings(pinChanged: boolean) {
+  if (
+    updatingSettings.value ||
+    !settings.value ||
+    (pinValid.value === false && !pinValue.value)
+  ) {
     return
   }
+  updatingSettings.value = true
   const response = await fetch(apiUrl("settings"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(newSettings),
+    body: JSON.stringify({ ...settings.value, pin: pinValue.value }),
   })
-  if (!response.ok) {
-    await addError("Failed to update settings", response)
+  if (response.ok) {
+    pinValid.value = true
+  } else {
+    if (response.status === 403) {
+      pinValid.value = false
+      if (pinChanged && pinValue.value) {
+        errors.value.push("Invalid PIN. Please check your settings.")
+        activeTab.value = "tab-settings"
+      }
+    } else {
+      await addError("Failed to update settings", response)
+    }
   }
+  updatingSettings.value = false
 }
 
 async function queueApiRequest(fetchPromise: Promise<Response>) {
@@ -170,7 +186,7 @@ async function addToQueue() {
       body: JSON.stringify({ source: link.value }),
     }),
   )
-  // link.value = ""  // TODO
+  link.value = ""
   activeTab.value = "tab-queue"
 }
 
@@ -479,157 +495,11 @@ onUnmounted(() => {
       </TabContent>
       <TabContent id="tab-settings" class="min-h-0">
         <ScrollContainer direction="y" class="h-full">
-          <div class="bg-card flex flex-col gap-4 rounded border p-4">
-            <h3 class="text-lg font-bold">Download Options</h3>
-            <div v-if="settings" class="grid grid-cols-[auto_1fr] items-center gap-2">
-              <Label for="input:settings:usdb-cookie">USDB Cookie</Label>
-              <Input
-                v-model="settings.usdbCookie"
-                id="input:settings:usdb-cookie"
-                placeholder="PHPSESSID=..."
-              />
-              <details
-                class="text-muted-foreground col-span-2 -mt-2 text-sm"
-                :open="false"
-              >
-                <summary class="cursor-pointer">
-                  How to get the PHPSESSID cookie?
-                </summary>
-                <ol class="list-outside list-decimal pl-4">
-                  <li>
-                    Go to
-                    <a
-                      href="https://usdb.animux.de"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      https://usdb.animux.de </a
-                    >.
-                  </li>
-                  <li>Login to your account.</li>
-                  <li>Open the browser's developer tools (F12).</li>
-                  <li>
-                    Run the following command in the console:
-                    <pre class="bg-muted mt-1 rounded p-2 text-sm whitespace-pre-wrap">
-(await cookieStore.get("PHPSESSID")).value</pre
-                    >
-                  </li>
-                  <li>Copy the value and paste it into the above field.</li>
-                </ol>
-              </details>
-            </div>
-            <div v-if="settings" class="grid grid-cols-[auto_1fr] items-center gap-2">
-              <Switch v-model="settings.noVideo" id="switch:settings:no-video" />
-              <Label for="switch:settings:no-video">
-                no video
-                <span class="text-muted-foreground text-sm">[faster, less data]</span>
-              </Label>
-              <Switch v-model="settings.noLyrics" id="switch:settings:no-lyrics" />
-              <Label for="switch:settings:no-lyrics">
-                no lyrics
-                <span class="text-muted-foreground text-sm">[less accurate]</span>
-              </Label>
-            </div>
-            <hr />
-            <h3 class="text-lg font-bold">AI Models</h3>
-            <div v-if="settings">
-              <h4 class="flex items-center gap-3">
-                Stem Separation Model
-                <a
-                  href="https://github.com/nomadkaraoke/python-audio-separator"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="text-blue-500 hover:underline"
-                >
-                  <Info :size="16" />
-                </a>
-              </h4>
-              <RadioGroup v-model="settings.stemModel" class="items-start">
-                <RadioGroupItem
-                  id="radio:stem-model:demucs"
-                  value="demucs"
-                  class="mt-0.5"
-                />
-                <Label for="radio:stem-model:demucs" class="block">
-                  Demucs
-                  <span class="text-muted-foreground text-sm">(recommended)</span>
-                </Label>
-                <RadioGroupItem
-                  id="radio:stem-model:mel-roformer"
-                  value="mel-roformer"
-                  class="mt-0.5"
-                />
-                <Label for="radio:stem-model:mel-roformer" class="block">
-                  Mel-Band Roformer
-                  <span class="text-muted-foreground text-sm">
-                    [better, slow on CPU]
-                  </span>
-                </Label>
-              </RadioGroup>
-              <h4 class="flex items-center gap-3">
-                Transcription Model (WhisperX)
-                <a
-                  href="https://github.com/openai/whisper/discussions/2363"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="text-blue-500 hover:underline"
-                >
-                  <Info :size="16" />
-                </a>
-              </h4>
-              <RadioGroup v-model="settings.whisperModel" class="items-start">
-                <RadioGroupItem
-                  id="radio:whisper-model:turbo"
-                  value="turbo"
-                  class="mt-0.5"
-                />
-                <Label for="radio:whisper-model:turbo" class="block">
-                  turbo
-                  <span class="text-muted-foreground text-sm">
-                    (recommended) [fast, high quality]
-                  </span>
-                </Label>
-                <RadioGroupItem
-                  id="radio:whisper-model:large"
-                  value="large"
-                  class="mt-0.5"
-                />
-                <Label for="radio:whisper-model:large" class="block">
-                  large
-                  <span class="text-muted-foreground text-sm"
-                    >[slow, highest quality]</span
-                  >
-                </Label>
-                <RadioGroupItem
-                  id="radio:whisper-model:medium"
-                  value="medium"
-                  class="mt-0.5"
-                />
-                <Label for="radio:whisper-model:medium" class="block">medium</Label>
-                <RadioGroupItem
-                  id="radio:whisper-model:small"
-                  value="small"
-                  class="mt-0.5"
-                />
-                <Label for="radio:whisper-model:small" class="block">small</Label>
-                <RadioGroupItem
-                  id="radio:whisper-model:base"
-                  value="base"
-                  class="mt-0.5"
-                />
-                <Label for="radio:whisper-model:base" class="block">base</Label>
-                <RadioGroupItem
-                  id="radio:whisper-model:tiny"
-                  value="tiny"
-                  class="mt-0.5"
-                />
-                <Label for="radio:whisper-model:tiny" class="block">
-                  tiny
-                  <span class="text-muted-foreground text-sm">[fast, low quality]</span>
-                </Label>
-              </RadioGroup>
-            </div>
-          </div>
+          <AppSettings
+            v-model:settings="settings"
+            v-model:pin="pinValue"
+            :pinValid="pinValid"
+          />
         </ScrollContainer>
       </TabContent>
     </Tabs>

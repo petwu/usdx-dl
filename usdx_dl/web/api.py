@@ -40,12 +40,18 @@ async def api_state() -> state.ServerState:
 @router.get("/settings")
 async def api_settings() -> state.Settings:
     """Get the current server settings."""
-    return state.settings
+    plain_settings = state.settings.model_copy()
+    plain_settings.pin = None if state.server_cfg.unlocked_settings else "****"
+    return plain_settings
 
 
 @router.post("/settings")
 async def api_update_settings(settings: state.Settings):
     """Update the server settings."""
+    if state.server_cfg.unlocked_settings:
+        settings.pin = state.settings.pin
+    elif state.settings.pin and settings.pin != state.settings.pin:
+        raise HTTPException(status_code=403, detail="Invalid PIN.")
     state.settings = settings
     state.settings.save()
 

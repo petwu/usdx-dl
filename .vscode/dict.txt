@@ -10,6 +10,7 @@ denoising
 fastapi
 fmax
 fmin
+gethostname
 gettxt
 htdemucs
 hyphenator

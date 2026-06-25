@@ -48,6 +48,7 @@ class ServerConfig(BaseModel):
     data_dir: Path = Field(frozen=True)
     tee: bool = Field(frozen=True)
     no_browser: bool = Field(frozen=True)
+    unlocked_settings: bool = Field(frozen=True)
 
     @property
     def url(self) -> str:
@@ -87,6 +88,7 @@ class ServerConfig(BaseModel):
 class Settings(BaseModel):
     """Settings for a download request."""
 
+    pin: str | None = None
     usdb_cookie: str | None = None
     stem_model: str = "demucs"
     whisper_model: str = "turbo"

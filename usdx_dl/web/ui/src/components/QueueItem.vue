@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { deepEqual } from "@/lib/cmp"
 import { cn } from "@/lib/utils"
 import type { PipelineContext } from "@/types/api"
 import {
@@ -69,10 +70,6 @@ const emit = defineEmits<{
   (e: "retry", item: PipelineContext): void
   (e: "click-badge"): void
 }>()
-
-function deepEqual<T>(a: T, b: T): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
-}
 
 function resetChanges() {
   meta.value = structuredClone(toRaw(props.item.meta))

@@ -11,6 +11,7 @@ export type SongMetadata = {
 }
 
 export type Settings = {
+  pin: string | null
   usdbCookie: string | null
   stemModel: string
   whisperModel: string
@@ -19,7 +20,7 @@ export type Settings = {
   pauseProcessing: boolean
 }
 
-export type PipelineContext = Omit<Settings, "pauseProcessing"> & {
+export type PipelineContext = Omit<Settings, "pauseProcessing" | "pin"> & {
   uuid: string
   lyrics: string | null
   meta: SongMetadata

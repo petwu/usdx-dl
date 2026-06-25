@@ -229,6 +229,11 @@ def parse(
         action="store_true",
         help="Don't automatically open the web UI in default browser.",
     )
+    parser_web.add_argument(
+        "--unlocked-settings",
+        action="store_true",
+        help="Unlock the settings page in the web UI.",
+    )
 
     # handle default subcommand
     argv = sys.argv[1:]
