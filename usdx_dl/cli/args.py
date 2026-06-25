@@ -21,13 +21,24 @@ import sys
 from pathlib import Path
 from typing import Callable, Literal
 
-from usdx_dl import __version__, cli
+from usdx_dl import __version__, models
 
 
 def parse(
     default_subcmd: Literal["download", "list", "version"] = "download",
-) -> tuple[Callable, argparse.Namespace]:
-    """Parse command line arguments."""
+) -> tuple[str | Callable, argparse.Namespace]:
+    """Parse command line arguments.
+
+    Args:
+        default_subcmd: The default subcommand to use if none is provided.
+
+    Returns:
+        A tuple of:
+            - The subcommand name or function to call. If it is a string, you
+              will need to call the corresponding main function at
+              ``usdx_dl.cli.<name>.main``.
+            - The parsed arguments as a Namespace object.
+    """
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -44,10 +55,12 @@ def parse(
     parser_web = subparsers.add_parser("web", help="run the web UI")
     parser_v = subparsers.add_parser("version", help=version_action.help)
     assert default_subcmd in subparsers.choices.keys()
-    parser_dl.set_defaults(func=cli.download.main)
-    parser_ls.set_defaults(func=cli.list.main)
-    parser_web.set_defaults(func=cli.web.main)
-    parser_v.set_defaults(func=lambda: version_action(parser, argparse.Namespace(), []))
+    parser_dl.set_defaults(subcmd="download")
+    parser_ls.set_defaults(subcmd="list")
+    parser_web.set_defaults(subcmd="web")
+    parser_v.set_defaults(
+        subcmd=lambda: version_action(parser, argparse.Namespace(), [])
+    )
 
     parser_dl.add_argument(
         "source",
@@ -132,7 +145,7 @@ def parse(
         type=str,
         nargs="?",
         const="all",
-        choices=list(cli.download.Force),
+        choices=list(models.Force),
         help="Force to rerun everything or just a specific step. "
         "Defaults to 'all' without argument.",
     )
@@ -228,8 +241,8 @@ def parse(
             argv.insert(0, default_subcmd)
 
     args = parser.parse_args(argv)
-    func = args.func
+    subcmd = args.subcmd
     del args.cmd  # type: ignore
-    del args.func  # type: ignore
+    del args.subcmd  # type: ignore
 
-    return func, args
+    return subcmd, args

@@ -8,8 +8,12 @@ from usdx_dl import ansi, cli
 def main():
     """Main function."""
     try:
-        subcmd_func, args = cli.args.parse()
-        subcmd_func(**vars(args))
+        subcmd, args = cli.args.parse()
+        if callable(subcmd):
+            subcmd(**vars(args))
+        else:
+            assert isinstance(subcmd, str)
+            getattr(cli, subcmd).main(**vars(args))
     except KeyboardInterrupt:
         print()
     except Exception as e:  # pylint: disable=broad-exception-caught
