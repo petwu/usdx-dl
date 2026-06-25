@@ -77,6 +77,21 @@ async def api_update_settings(settings: state.Settings):
     state.settings.save()
 
 
+class PauseRequest(BaseModel):
+    """Request type for the /pause endpoint."""
+
+    value: bool
+
+    model_config = models.config
+
+
+@router.post("/pause")
+async def api_pause(req: PauseRequest) -> None:
+    """Pause the processing queue."""
+    state.settings.pause_processing = req.value
+    state.settings.save()
+
+
 class EnqueueRequest(BaseModel):
     """Request type for the /enqueue endpoint."""
 

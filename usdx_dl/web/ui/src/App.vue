@@ -161,6 +161,17 @@ async function updateSettings(pinChanged: boolean) {
   updatingSettings.value = false
 }
 
+async function togglePauseProcessing() {
+  inputDisabled.value = true
+  await fetch(apiUrl("pause"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value: !settings.value?.pauseProcessing }),
+  })
+  await fetchSettings()
+  inputDisabled.value = false
+}
+
 async function queueApiRequest(fetchPromise: Promise<Response>) {
   inputDisabled.value = true
   try {
@@ -382,7 +393,7 @@ onUnmounted(() => {
           size="icon"
           :variant="settings?.pauseProcessing ? 'warning' : 'outline'"
           title="pause/resume processing"
-          @click="settings.pauseProcessing = !settings.pauseProcessing"
+          @click="togglePauseProcessing()"
           :class="
             cn('size-9', settings?.pauseProcessing ? '' : 'bg-muted border-muted')
           "
