@@ -12,6 +12,8 @@
       "addWords": true
     }
   },
+  "python.envFile": "${workspaceFolder}/.env",
+  "python.terminal.useEnvFile": true,
   "python.testing.pytestArgs": ["usdx_dl"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,

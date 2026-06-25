@@ -36,6 +36,12 @@ override-dependencies = [
 ]
 torch-backend = "auto"
 
+[tool.pytest]
+cache_dir = ".cache/pytest"
+
+[tool.mypy]
+cache_dir = ".cache/mypy"
+
 [[tool.mypy.overrides]]
 module = [
     "whisperx.*",
