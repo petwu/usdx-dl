@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from usdx_dl import cli, interactive, models
+from usdx_dl import cli, interactive, models, platform_utils
 from usdx_dl.web import state
 
 __all__ = ["router"]
@@ -29,6 +29,27 @@ async def api_songs() -> list[ExtendedSongMetadata]:
         ExtendedSongMetadata(id=path.name, **meta.model_dump())
         for path, meta in song_list
     ]
+
+
+class OpenFolderRequest(BaseModel):
+    """Request type for the /open-folder endpoint."""
+
+    id: str | None = None
+
+    model_config = models.config
+
+
+@router.post("/open-folder")
+async def api_open_folder(req: OpenFolderRequest):
+    """Open the output directory or a specific song directory in the file explorer."""
+    path = (
+        state.server_cfg.output_dir / str(req.id)
+        if req.id
+        else state.server_cfg.output_dir
+    )
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Directory not found.")
+    platform_utils.open_with_default_app(path)
 
 
 @router.get("/state")

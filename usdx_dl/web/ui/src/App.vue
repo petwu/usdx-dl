@@ -235,6 +235,14 @@ async function retryQueueItem(item: PipelineContext) {
   )
 }
 
+async function openSongFolder(id: string) {
+  fetch(apiUrl("open-folder"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  })
+}
+
 async function clearLog() {
   logBuffer.value = []
   await queueApiRequest(fetch(apiUrl("clear-log"), { method: "DELETE" }))
@@ -451,6 +459,7 @@ onUnmounted(() => {
               v-for="song in filteredSongs"
               :key="JSON.stringify(song)"
               :song="song"
+              @open-folder="openSongFolder"
             />
           </TransitionGroup>
         </ScrollContainer>
@@ -488,7 +497,8 @@ onUnmounted(() => {
                 ])
               "
             >
-              <p v-for="line in logBuffer" v-html="line" />
+              <p v-if="logBuffer.length > 0" v-for="line in logBuffer" v-html="line" />
+              <p v-else class="text-muted-foreground italic">no log entries yet ...</p>
             </div>
           </ScrollContainer>
         </div>

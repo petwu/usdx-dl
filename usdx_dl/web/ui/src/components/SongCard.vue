@@ -2,10 +2,11 @@
 import MusicBars from "@/components/MusicBars.vue"
 import { useCurrentSong } from "@/components/store"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { getAssetUrl } from "@/lib/host"
 import { cn } from "@/lib/utils"
 import type { SongMetadata } from "@/types/api"
-import { Pause, Play } from "@lucide/vue"
+import { Folder, Pause, Play } from "@lucide/vue"
 import { ref, useTemplateRef, watch, type HTMLAttributes } from "vue"
 
 const props = withDefaults(
@@ -62,6 +63,10 @@ function seek(event: MouseEvent) {
   const newProgress = clickX / rect.width
   audio.value.currentTime = newProgress * audio.value.duration
 }
+
+const emit = defineEmits<{
+  (e: "open-folder", id: string): void
+}>()
 </script>
 
 <template>
@@ -78,37 +83,52 @@ function seek(event: MouseEvent) {
     <img
       :src="getAssetUrl(meta.id, 'cover')"
       alt="cover"
-      class="h-full min-h-24 w-24 shrink-0 object-cover"
+      class="h-full min-h-20 w-20 shrink-0 object-cover"
     />
-    <div class="grow">
-      <Button
-        size="icon"
-        variant="ghost"
-        :disabled="props.disabled"
-        class="text-primary float-right rounded-none rounded-bl-lg"
-        @click="playing = !playing"
-      >
-        <Play v-if="!playing" />
-        <Pause v-else />
-      </Button>
-      <audio
-        ref="audioRef"
-        :src="getAssetUrl(meta.id, 'audio')"
-        :controls="false"
-        preload="metadata"
-        class="hidden"
-      />
-      <h3 class="flex items-center gap-2 font-bold">
-        <MusicBars v-if="playing" class="size-4" />
-        {{ meta.title }}
-      </h3>
-      <p class="text-sm">{{ meta.artist }}</p>
-      <p class="text-muted-foreground mt-0.5 text-xs italic">
-        {{ [meta.year, meta.genre, meta.language].filter(Boolean).join(", ") }}
-      </p>
+    <div class="flex grow gap-2">
+      <div class="grow">
+        <audio
+          ref="audioRef"
+          :src="getAssetUrl(meta.id, 'audio')"
+          :controls="false"
+          preload="metadata"
+          class="hidden"
+        />
+        <h3 class="flex items-center gap-2 font-bold">
+          <MusicBars v-if="playing" class="size-4" />
+          {{ meta.title }}
+        </h3>
+        <p class="text-sm">{{ meta.artist }}</p>
+        <p class="text-muted-foreground mt-0.5 mb-3 text-xs italic">
+          {{ [meta.year, meta.genre, meta.language].filter(Boolean).join(", ") }}
+        </p>
+      </div>
+      <ButtonGroup orientation="vertical">
+        <Button
+          size="icon"
+          variant="ghost"
+          :disabled="props.disabled"
+          class="text-primary float-right rounded-none"
+          title="play/pause audio track"
+          @click="playing = !playing"
+        >
+          <Play v-if="!playing" />
+          <Pause v-else />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          :disabled="props.disabled"
+          class="rounded-none rounded-bl-lg text-amber-500"
+          title="open song folder in file explorer"
+          @click="emit('open-folder', meta.id)"
+        >
+          <Folder />
+        </Button>
+      </ButtonGroup>
     </div>
     <div
-      class="absolute right-0 bottom-0 left-24 flex h-4 cursor-pointer items-end"
+      class="absolute right-0 bottom-0 left-20 flex h-4 cursor-pointer items-end"
       @click="seek"
     >
       <div class="bg-primary h-1" :style="{ width: `${progress * 100}%` }" />
