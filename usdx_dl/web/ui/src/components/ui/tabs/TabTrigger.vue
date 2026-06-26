@@ -8,14 +8,14 @@ const props = defineProps<{
 }>()
 
 const activeTab = inject<Ref<string>>("activeTab")!
-const setTab = inject<(id: string) => void>("setTab")!
+const setTab = inject<(id: string, text?: string) => void>("setTab")!
 
 const isActive = computed(() => activeTab.value === props.id)
 </script>
 
 <template>
   <button
-    @click="setTab(id)"
+    @click="(e) => setTab(id, (e.target as HTMLElement).textContent?.trim())"
     :data-state="isActive ? 'active' : 'inactive'"
     :class="
       cn(

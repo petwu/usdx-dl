@@ -80,11 +80,19 @@ const emit = defineEmits<{
       )
     "
   >
-    <img
-      :src="getAssetUrl(meta.id, 'cover')"
-      alt="cover"
-      class="h-full min-h-20 w-20 shrink-0 object-cover"
-    />
+    <a
+      :href="meta.usdbUrl ?? meta.videoUrl!"
+      class="block h-full"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <img
+        :src="getAssetUrl(meta.id, 'cover')"
+        loading="lazy"
+        alt=""
+        class="h-full min-h-20 w-20 shrink-0 object-cover"
+      />
+    </a>
     <div class="flex grow gap-2">
       <div class="grow">
         <audio

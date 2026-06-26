@@ -16,6 +16,10 @@ type SRefOptions = {
    * @default "page"
    */
   scope?: "page" | "site"
+  /**
+   * Don't watch the storage value for changes.
+   */
+  noWatch?: boolean
 }
 
 /**
@@ -52,7 +56,7 @@ export function sref<T>(
     throw Error("sref() allows only [a-zA-Z0-9_:-] characters in the key")
   }
 
-  const { persistent = true, scope = "page" } = options || {}
+  const { persistent = true, scope = "page", noWatch = false } = options || {}
 
   const storage = persistent ? localStorage : sessionStorage
   const prefix = scope === "site" ? "" : location.pathname
@@ -76,15 +80,17 @@ export function sref<T>(
   )
 
   // watch the storage and update the ref object
-  window.addEventListener(
-    "storage",
-    (event) => {
-      if (event.key === key && refObj.value.toString() !== event.newValue) {
-        refObj.value = JSON.parse(event.newValue!)
-      }
-    },
-    { passive: true },
-  )
+  if (!noWatch) {
+    window.addEventListener(
+      "storage",
+      (event) => {
+        if (event.key === key && refObj.value.toString() !== event.newValue) {
+          refObj.value = JSON.parse(event.newValue!)
+        }
+      },
+      { passive: true },
+    )
+  }
 
   return refObj
 }

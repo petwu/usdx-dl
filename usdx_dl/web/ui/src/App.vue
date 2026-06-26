@@ -8,7 +8,7 @@ import SongCard from "@/components/SongCard.vue"
 import ThemeSwitcher from "@/components/ThemeSwitcher.vue"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { TabContent, TabList, Tabs, TabTrigger } from "@/components/ui/tabs"
+import { TabContent, TabLink, TabList, Tabs, TabTrigger } from "@/components/ui/tabs"
 import { ansiToHtml } from "@/lib/ansi"
 import { apiUrl, websocketUrl } from "@/lib/host"
 import { cn } from "@/lib/utils"
@@ -17,6 +17,7 @@ import type { PipelineContext, ServerState, Settings, SongMetadata } from "@/typ
 import {
   ChevronsLeftRightEllipsis,
   HelpCircle,
+  ListMusic,
   Pause,
   Play,
   SendHorizontal,
@@ -47,7 +48,7 @@ const errors = ref<string[]>([])
 const mounted = ref(false)
 const inputDisabled = ref<boolean>(false)
 const link = ref<string>("")
-const activeTab = sref<string>("tab:active", "tab-instructions")
+const activeTab = sref<string>("tab:active", "tab-instructions", { noWatch: true })
 const songsFilter = sref<string>("songs:filter", "")
 const wrapLog = sref<boolean>("switch:wrap-log", false)
 
@@ -388,7 +389,12 @@ onUnmounted(() => {
         Reconnect
       </Button>
     </div>
-    <Tabs v-model="activeTab" class="min-h-32 grow">
+    <Tabs
+      v-model="activeTab"
+      class="min-h-32 grow"
+      history
+      titleTemplate="usdx-dl - {tab}"
+    >
       <div class="flex items-center gap-2">
         <Button
           v-if="settings"
@@ -442,7 +448,23 @@ onUnmounted(() => {
       </template>
       <TabContent id="tab-queue" class="min-h-0">
         <ScrollContainer direction="y" autoScroll="y" class="h-full">
-          <TransitionGroup tag="ul" name="queue" class="relative block">
+          <TransitionGroup tag="ul" name="queue" class="relative block min-h-full">
+            <div
+              v-if="!state.processing && !state.queue.length"
+              class="absolute top-1/2 left-1/2 flex w-fit -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center"
+            >
+              <p class="text-muted-foreground italic">Queue is empty.</p>
+              <hr class="my-16 w-1/2" />
+              <p>Need help?</p>
+              <TabLink id="tab-instructions" class="w-full">
+                <HelpCircle class="text-blue-500" />
+                View Instructions
+              </TabLink>
+              <TabLink id="tab-songs" class="w-full">
+                <ListMusic class="text-fuchsia-500" />
+                Browse Songs
+              </TabLink>
+            </div>
             <QueueItem
               v-if="state.processing"
               :item="state.processing"
