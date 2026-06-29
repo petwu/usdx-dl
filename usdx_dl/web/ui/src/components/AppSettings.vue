@@ -51,6 +51,8 @@ function updatePin() {
             v-model="pin"
             id="input:settings:pin"
             type="password"
+            inputmode="numeric"
+            autocomplete="off"
             placeholder="****"
             :disabled="!pinEditable"
             @keyup.enter="updatePin"
@@ -122,7 +124,9 @@ function updatePin() {
       />
       <Label for="switch:settings:no-video">
         no video
-        <span class="text-muted-foreground text-sm">[faster, less data]</span>
+        <span class="text-muted-foreground text-sm font-light"
+          >[faster, less data]</span
+        >
       </Label>
       <Switch
         v-model="settings.noLyrics"
@@ -131,7 +135,7 @@ function updatePin() {
       />
       <Label for="switch:settings:no-lyrics">
         no lyrics
-        <span class="text-muted-foreground text-sm">[less accurate]</span>
+        <span class="text-muted-foreground text-sm font-light">[less accurate]</span>
       </Label>
     </div>
     <hr />
@@ -157,7 +161,7 @@ function updatePin() {
         />
         <Label for="radio:stem-model:demucs" class="block">
           Demucs
-          <span class="text-muted-foreground text-sm">(recommended)</span>
+          <span class="text-muted-foreground text-sm font-light">(recommended)</span>
         </Label>
         <RadioGroupItem
           id="radio:stem-model:mel-roformer"
@@ -167,7 +171,9 @@ function updatePin() {
         />
         <Label for="radio:stem-model:mel-roformer" class="block">
           Mel-Band Roformer
-          <span class="text-muted-foreground text-sm"> [better, slow on CPU] </span>
+          <span class="text-muted-foreground text-sm font-light">
+            [better, slow on CPU]
+          </span>
         </Label>
       </RadioGroup>
       <h4 class="flex items-center gap-3">
@@ -190,7 +196,7 @@ function updatePin() {
         />
         <Label for="radio:whisper-model:turbo" class="block">
           turbo
-          <span class="text-muted-foreground text-sm">
+          <span class="text-muted-foreground text-sm font-light">
             (recommended) [fast, high quality]
           </span>
         </Label>
@@ -202,7 +208,9 @@ function updatePin() {
         />
         <Label for="radio:whisper-model:large" class="block">
           large
-          <span class="text-muted-foreground text-sm">[slow, highest quality]</span>
+          <span class="text-muted-foreground text-sm font-light"
+            >[slow, highest quality]</span
+          >
         </Label>
         <RadioGroupItem
           id="radio:whisper-model:medium"
@@ -233,7 +241,9 @@ function updatePin() {
         />
         <Label for="radio:whisper-model:tiny" class="block">
           tiny
-          <span class="text-muted-foreground text-sm">[fast, low quality]</span>
+          <span class="text-muted-foreground text-sm font-light"
+            >[fast, low quality]</span
+          >
         </Label>
       </RadioGroup>
     </div>
