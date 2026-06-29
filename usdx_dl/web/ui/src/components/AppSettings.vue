@@ -5,7 +5,7 @@ import Label from "@/components/ui/label/Label.vue"
 import RadioGroup from "@/components/ui/radio-group/RadioGroup.vue"
 import RadioGroupItem from "@/components/ui/radio-group/RadioGroupItem.vue"
 import Switch from "@/components/ui/switch/Switch.vue"
-import type { Settings } from "@/types/api"
+import type { Settings, Tool } from "@/types/api"
 import { AlertTriangle, Check, Info, KeyRound } from "@lucide/vue"
 import { computed, ref } from "vue"
 
@@ -15,6 +15,7 @@ const props = defineProps<{
 
 const settings = defineModel<Settings | null>("settings")
 const pinValue = defineModel<string>("pin")
+const tools = defineModel<Tool[]>("tools", { default: () => [] })
 const pin = ref<string>(pinValue.value ?? "")
 const pinEditable = ref<boolean>(false)
 const requiresPin = computed(() => {
@@ -247,5 +248,16 @@ function updatePin() {
         </Label>
       </RadioGroup>
     </div>
+    <template v-if="tools?.length > 0">
+      <hr />
+      <h3 class="text-lg font-bold">Tools</h3>
+      <ul class="list-outside list-disc pl-4">
+        <li v-for="tool in tools" class="not-first:mt-2">
+          {{ tool.name }}
+          &nbsp; @ {{ tool.version ?? "unknown" }}<br />
+          <span class="text-primary text-xs">{{ tool.path }}</span>
+        </li>
+      </ul>
+    </template>
   </div>
 </template>

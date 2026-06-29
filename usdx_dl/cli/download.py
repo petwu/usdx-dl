@@ -18,7 +18,6 @@ from PIL import Image
 
 from usdx_dl import (
     ansi,
-    config,
     ffmpeg,
     fmt,
     hyphens,
@@ -158,9 +157,10 @@ def run_pipeline(
 def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
     """Prepare a download request by collecting necessary metadata."""
     # detect if we start from USDB or YouTube
+    cfg = models.Config.load()
     if "usdb.animux.de" in ctx.url_or_id or ctx.url_or_id.isdigit():
         if not ctx.usdb_cookie:
-            ctx.usdb_cookie = config.get("usdb_cookie")
+            ctx.usdb_cookie = cfg.usdb_cookie
             if not ctx.usdb_cookie:
                 if ctx.non_interactive:
                     raise RuntimeError(
@@ -174,7 +174,8 @@ def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
                     raise ValueError(
                         "Invalid PHPSESSID, must be at least 22 characters."
                     )
-        config.set("usdb_cookie", ctx.usdb_cookie)
+        cfg.usdb_cookie = ctx.usdb_cookie
+        cfg.save()
         usdb_client = usdb.APIClient(ctx.url_or_id, ctx.usdb_cookie)
         yt_client = None
         song_id = str(usdb_client.id)
@@ -199,7 +200,8 @@ def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
         if should_run(paths.song_orig_txt, ctx.force, Force.DOWNLOAD):
             txt = usdb_client.fetch_txt()
             if txt is None:
-                config.unset("usdb_cookie")
+                cfg.usdb_cookie = None
+                cfg.save()
                 raise RuntimeError(f"Failed to fetch TXT for {ctx.url_or_id}")
             paths.song_orig_txt.write_text(txt, "utf-8")
             __print_time(perf_counter() - t)

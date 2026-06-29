@@ -15,4 +15,5 @@ except PackageNotFoundError:
     else:
         __version__ = "unknown"
 
-__app__: Final[PlatformDirs] = PlatformDirs("usdx-dl")
+__app_name__ = "usdx-dl"
+__app__: Final[PlatformDirs] = PlatformDirs(__app_name__)

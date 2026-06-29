@@ -1,12 +1,12 @@
 """Subcommands for usdx-dl."""
 # pylint: disable=redefined-builtin,import-outside-toplevel
 
-__all__ = ["args", "list", "download", "web"]
+__all__ = ["args", "config", "list", "download", "web"]
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from . import args, download, list, web
+    from . import args, config, download, list, web
 
 
 # lazy import subcommands to improve startup time for all subcommands that don't need

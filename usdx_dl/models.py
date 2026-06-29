@@ -9,6 +9,8 @@ from typing import Self, Sequence, TypeVar
 
 from pydantic import AliasGenerator, BaseModel, ConfigDict, TypeAdapter
 
+from usdx_dl import __app__
+
 
 def snake_to_camel_case(snake_str: str) -> str:
     """Convert a snake_case string to camelCase."""
@@ -67,6 +69,47 @@ def from_json(
         by_name=by_name,
         **kwargs,
     )
+
+
+class Config(BaseModel):
+    """App config."""
+
+    usdb_cookie: str | None = None
+    download_tools: bool = False
+
+    model_config = config
+
+    @classmethod
+    def path(cls) -> Path:
+        """Path to the config file."""
+        return __app__.user_config_path / "config.json"
+
+    def save(self) -> None:
+        """Save the server state to disk."""
+        path = Config.path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.model_dump_json(indent=2, by_alias=False), "utf-8")
+
+    @classmethod
+    def load(cls) -> Self:
+        """Load the server state from disk."""
+        path = Config.path()
+        if not path.exists():
+            return cls()
+        return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
+
+
+class Tool(BaseModel):
+    """Model representing a missing required tool."""
+
+    name: str
+    path: Path
+    version: str | None
+    latest: str
+    download_url: str
+    homepage: str
+
+    model_config = config
 
 
 class SongMetadata(BaseModel):

@@ -50,16 +50,34 @@ def parse(
         version=f"%(prog)s {__version__}",
     )
     subparsers = parser.add_subparsers(dest="cmd", title="subcommands", required=True)
+    parser_cfg = subparsers.add_parser("config", help="view or edit config")
     parser_dl = subparsers.add_parser("download", help="download a song (default)")
     parser_ls = subparsers.add_parser("list", help="list all songs")
     parser_web = subparsers.add_parser("web", help="run the web UI")
     parser_v = subparsers.add_parser("version", help=version_action.help)
     assert default_subcmd in subparsers.choices.keys()
+    parser_cfg.set_defaults(subcmd="config")
     parser_dl.set_defaults(subcmd="download")
     parser_ls.set_defaults(subcmd="list")
     parser_web.set_defaults(subcmd="web")
     parser_v.set_defaults(
         subcmd=lambda: version_action(parser, argparse.Namespace(), [])
+    )
+
+    parser_cfg.add_argument(
+        "key",
+        type=str,
+        nargs="?",
+        help="Config key to view or edit. If not provided, all config keys will be"
+        " printed.",
+    )
+    parser_cfg.add_argument(
+        "value",
+        type=str,
+        nargs="?",
+        help="New value for the config key. If not provided, the current value will "
+        "be printed. Must be a valid JSON value (e.g. string, number, boolean, null, "
+        "array or object).",
     )
 
     parser_dl.add_argument(

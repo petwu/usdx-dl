@@ -10,6 +10,7 @@
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 !.vscode/*.txt
+bin/
 data/
 models/
 songs/

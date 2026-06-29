@@ -3,12 +3,30 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from usdx_dl import cli, config, interactive, models, platform_utils
+from usdx_dl import cli, interactive, models, platform_utils, required_tools
 from usdx_dl.web import state
 
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/tools")
+async def api_tools() -> list[models.Tool]:
+    """Get a list of all available tools."""
+    return required_tools.query()
+
+
+@router.post("/tools/download")
+async def api_tools_download() -> None:
+    """Download missing tools."""
+    try:
+        cfg = models.Config.load()
+        cfg.download_tools = True
+        cfg.save()
+        required_tools.download()
+    except Exception as e:  # pylint: disable=broad-except
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 class ExtendedSongMetadata(models.SongMetadata):
@@ -75,7 +93,9 @@ async def api_update_settings(settings: state.Settings):
         raise HTTPException(status_code=403, detail="Invalid PIN.")
     state.settings = settings
     state.settings.save()
-    config.set("usdb_cookie", state.settings.usdb_cookie)
+    cfg = models.Config.load()
+    cfg.usdb_cookie = state.settings.usdb_cookie
+    cfg.save()
 
 
 class PauseRequest(BaseModel):

@@ -32,3 +32,12 @@ export type ServerState = {
   processing: PipelineContext | null
   queue: PipelineContext[]
 }
+
+export type Tool = {
+  name: string
+  path: string
+  version: string | null
+  latest: string
+  downloadUrl: string
+  homepage: string
+}

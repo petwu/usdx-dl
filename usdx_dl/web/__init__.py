@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from usdx_dl import ansi, config
+from usdx_dl import ansi, models
 from usdx_dl.interactive import CliPrompt
 from usdx_dl.web import api, state, worker, ws
 
@@ -57,7 +57,8 @@ def main(**kwargs) -> None:
         if hint != "" and not hint.isdigit():
             raise ValueError("PIN must be numeric.")
         state.settings.pin = hint
-    state.settings.usdb_cookie = config.get("usdb_cookie")
+    cfg = models.Config.load()
+    state.settings.usdb_cookie = cfg.usdb_cookie or state.settings.usdb_cookie
     state.settings.save()
     state.processing_state = state.ServerState.load()
 
