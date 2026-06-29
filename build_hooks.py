@@ -25,6 +25,7 @@ def is_npm_available() -> bool:
 def build_web_ui(version: str, build_data: dict[str, Any]) -> None:
     """Build the web UI using npm/vite."""
     web_dir = Path(__file__).parent / "usdx_dl" / "web" / "ui"
+    dist_dir = web_dir / "dist"
 
     if not is_npm_available():
         raise RuntimeError("npm is not available. Please install Node.js and npm.")
@@ -32,9 +33,8 @@ def build_web_ui(version: str, build_data: dict[str, Any]) -> None:
     subprocess.run(["npm", "install"], cwd=web_dir, check=True)
     subprocess.run(["npm", "run", "build"], cwd=web_dir, check=True)
 
-    build_data["force_include_editable"] = {
-        "usdx_dl/web/ui/dist": "usdx_dl/web/ui/dist"
-    }
+    build_data["force_include"] = {str(dist_dir): "usdx_dl/web/ui/dist"}
+    build_data["force_include_editable"] = {str(dist_dir): "usdx_dl/web/ui/dist"}
 
 
 class BuildHook(BuildHookInterface):
