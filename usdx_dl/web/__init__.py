@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from usdx_dl import ansi
+from usdx_dl import ansi, config
 from usdx_dl.interactive import CliPrompt
 from usdx_dl.web import api, state, worker, ws
 
@@ -43,6 +43,7 @@ def main(**kwargs) -> None:
     """Args: See :func:`..cli.args.parse`."""
     # initialize the server config, settings and state
     state.server_cfg = state.ServerConfig(**kwargs)
+    state.server_cfg.output_dir.mkdir(parents=True, exist_ok=True)
     state.server_cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     state.server_cfg.log_path.write_text("", encoding="utf-8")
     if state.server_cfg.settings_path.exists():
@@ -56,6 +57,7 @@ def main(**kwargs) -> None:
         if hint != "" and not hint.isdigit():
             raise ValueError("PIN must be numeric.")
         state.settings.pin = hint
+    state.settings.usdb_cookie = config.get("usdb_cookie")
     state.settings.save()
     state.processing_state = state.ServerState.load()
 

@@ -1,6 +1,9 @@
 import tomllib
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import Final
+
+from platformdirs import PlatformDirs
 
 try:
     __version__ = version("usdx_dl")
@@ -11,3 +14,5 @@ except PackageNotFoundError:
             __version__ = tomllib.load(f)["project"]["version"]
     else:
         __version__ = "unknown"
+
+__app__: Final[PlatformDirs] = PlatformDirs("usdx-dl")

@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Literal
 
-from usdx_dl import __version__, models
+from usdx_dl import __app__, __version__, models
 
 
 def parse(
@@ -81,7 +81,7 @@ def parse(
             "--output-dir",
             metavar="DIR",
             type=Path,
-            default="songs",
+            default=__app__.user_data_path / "songs",
             help="Output directory. (default: %(default)s)",
         )
     for p in [parser_dl, parser_web]:
@@ -89,7 +89,7 @@ def parse(
             "-m",
             "--models-dir",
             type=Path,
-            default=Path(__file__).parent.parent.parent / ".models",
+            default=__app__.user_data_path / "models",
             help="Model cache directory. (default: %(default)s)",
         )
     parser_dl.add_argument(
@@ -208,7 +208,7 @@ def parse(
     parser_web.add_argument(
         "--data-dir",
         type=Path,
-        default=Path("data"),
+        default=__app__.user_data_path / "data",
         help="Data directory for the web UI. (default: %(default)s)",
     )
     parser_web.add_argument(

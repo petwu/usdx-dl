@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from usdx_dl import cli, interactive, models, platform_utils
+from usdx_dl import cli, config, interactive, models, platform_utils
 from usdx_dl.web import state
 
 __all__ = ["router"]
@@ -75,6 +75,7 @@ async def api_update_settings(settings: state.Settings):
         raise HTTPException(status_code=403, detail="Invalid PIN.")
     state.settings = settings
     state.settings.save()
+    config.set("usdb_cookie", state.settings.usdb_cookie)
 
 
 class PauseRequest(BaseModel):

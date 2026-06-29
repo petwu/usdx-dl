@@ -1,17 +1,18 @@
 """Simple config file helper."""
+# pylint: disable=redefined-builtin
 
 __all__ = ["set", "get"]
 
 import json
-import os
 from pathlib import Path
 from typing import Any
+
+from usdx_dl import __app__
 
 
 def config_path() -> Path:
     """Path to the programs config file."""
-    config_dir = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return config_dir / "usdx-dl.json"
+    return __app__.user_config_path / "config.json"
 
 
 def load() -> dict[str, Any]:
@@ -24,7 +25,9 @@ def load() -> dict[str, Any]:
 
 def save(cfg: dict[str, Any]) -> None:
     """Save the config to disk."""
-    config_path().write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    config_file = config_path()
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
 
 def get(key: str, default: Any = None) -> Any:

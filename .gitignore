@@ -2,7 +2,6 @@
 .config/
 .history/
 .mypy_cache/
-.models/
 .venv/
 .vscode/*
 !.vscode/settings.json
@@ -12,6 +11,7 @@
 !.vscode/*.code-snippets
 !.vscode/*.txt
 data/
+models/
 songs/
 dist/
 out/
@@ -24,3 +24,4 @@ batch.txt
 collection.txt
 playlist.txt
 songs.txt
+config.json

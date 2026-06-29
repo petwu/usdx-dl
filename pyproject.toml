@@ -7,8 +7,10 @@ requires-python = ">=3.12"
 dependencies = [
     "audio-separator~=0.44",
     "fastapi[standard]==0.138.0",
+    "librosa",
     "num2words",
     "onnxruntime",
+    "platformdirs",
     "pyhyphen",
     "swift-f0",
     "torch",
