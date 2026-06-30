@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=usdx-dl
+Comment=Download song files for karaoke games
+Exec=@bin_dir@/usdx-dl gui
+TryExec=@bin_dir@/usdx-dl
+Icon=usdx-dl
+Terminal=false
+Categories=AudioVideo;
+Keywords=karaoke;ultrastar;singstar;download;music;usdx;ai;
