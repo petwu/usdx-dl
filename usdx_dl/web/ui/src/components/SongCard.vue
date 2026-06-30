@@ -116,7 +116,7 @@ const emit = defineEmits<{
           size="icon"
           variant="ghost"
           :disabled="props.disabled"
-          class="text-primary float-right rounded-none"
+          class="text-primary hover:bg-primary/10 hover:text-primary float-right rounded-none"
           title="play/pause audio track"
           @click="playing = !playing"
         >
@@ -127,7 +127,7 @@ const emit = defineEmits<{
           size="icon"
           variant="ghost"
           :disabled="props.disabled"
-          class="rounded-none rounded-bl-lg text-amber-500"
+          class="rounded-none rounded-bl-lg text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
           title="open song folder in file explorer"
           @click="emit('open-folder', meta.id)"
         >

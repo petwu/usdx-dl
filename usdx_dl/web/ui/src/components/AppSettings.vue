@@ -33,13 +33,13 @@ function updatePin() {
 </script>
 
 <template>
-  <div :class="cn('bg-card flex flex-col gap-4 rounded border p-4', props.class)">
+  <div :class="cn('p-4', 'prose w-full max-w-full [&_hr]:my-8', props.class)">
     <template v-if="settings && requiresPin">
-      <h3 class="text-lg font-bold">PIN</h3>
+      <h3>PIN</h3>
+      <p class="col-span-2 text-sm">
+        Settings impacting the worker processing the queue are protected by a PIN.
+      </p>
       <div class="grid w-fit grid-cols-[1fr_auto] items-center gap-2">
-        <p class="text-muted-foreground col-span-2 text-sm">
-          Settings impacting the worker processing the queue are protected by a PIN.
-        </p>
         <Button
           v-if="!pinEditable"
           variant="outline"
@@ -71,7 +71,7 @@ function updatePin() {
         </template>
         <div
           v-if="locked"
-          class="bg-warning/10 border-warning text-warning col-span-2 flex w-auto flex-col justify-center rounded border p-2 text-center text-sm"
+          class="not-prose bg-warning/10 border-warning text-warning col-span-2 flex w-auto flex-col justify-center rounded border p-2 text-center text-sm"
         >
           <p class="flex items-center justify-center gap-2 font-bold">
             <AlertTriangle :size="16" /> Worker settings are locked.
@@ -89,8 +89,8 @@ function updatePin() {
       </div>
       <hr />
     </template>
-    <h3 class="text-lg font-bold">Download Options</h3>
-    <div v-if="settings" class="grid grid-cols-[auto_1fr] items-center gap-2">
+    <h3>Download Options</h3>
+    <div v-if="settings" class="mt-4 grid grid-cols-[auto_1fr] items-center gap-2">
       <Label for="input:settings:usdb-cookie">USDB Cookie</Label>
       <Input
         v-model="settings.usdbCookie"
@@ -98,9 +98,9 @@ function updatePin() {
         :disabled="locked"
         placeholder="PHPSESSID=..."
       />
-      <details class="text-muted-foreground col-span-2 -mt-2 text-sm" :open="false">
+      <details class="col-span-2 -mt-2 text-sm" :open="false">
         <summary class="cursor-pointer">How to get the PHPSESSID cookie?</summary>
-        <ol class="list-outside list-decimal pl-4">
+        <ol>
           <li>
             Go to
             <a href="https://usdb.animux.de" target="_blank" rel="noopener noreferrer">
@@ -111,7 +111,7 @@ function updatePin() {
           <li>Open the browser's developer tools (F12).</li>
           <li>
             Run the following command in the console:
-            <pre class="bg-muted mt-1 rounded p-2 text-sm whitespace-pre-wrap">
+            <pre class="bg-muted my-0! mt-1 rounded p-2 text-sm whitespace-pre-wrap">
 (await cookieStore.get("PHPSESSID")).value</pre
             >
           </li>
@@ -119,7 +119,7 @@ function updatePin() {
         </ol>
       </details>
     </div>
-    <div v-if="settings" class="grid grid-cols-[auto_1fr] items-center gap-2">
+    <div v-if="settings" class="mt-4 grid grid-cols-[auto_1fr] items-center gap-2">
       <Switch
         v-model="settings.noVideo"
         :disabled="locked"
@@ -142,7 +142,7 @@ function updatePin() {
       </Label>
     </div>
     <hr />
-    <h3 class="text-lg font-bold">AI Models</h3>
+    <h3>AI Models</h3>
     <div v-if="settings">
       <h4 class="flex items-center gap-3">
         Stem Separation Model
@@ -252,14 +252,15 @@ function updatePin() {
     </div>
     <template v-if="tools?.length > 0">
       <hr />
-      <h3 class="text-lg font-bold">Tools</h3>
-      <ul class="list-outside list-disc pl-4">
-        <li v-for="tool in tools" class="not-first:mt-2">
+      <h3>Tools</h3>
+      <ul>
+        <li v-for="tool in tools" class="leading-5 not-first:mt-2">
           {{ tool.name }}
           &nbsp; @ {{ tool.version ?? "unknown" }}<br />
           <span class="text-primary text-xs">{{ tool.path }}</span>
         </li>
       </ul>
     </template>
+    <slot />
   </div>
 </template>

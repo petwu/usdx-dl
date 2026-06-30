@@ -19,18 +19,13 @@ Getting started:
 import argparse
 import sys
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable
 
 from usdx_dl import __app__, __version__, models
 
 
-def parse(
-    default_subcmd: Literal["download", "list", "version"] = "download",
-) -> tuple[str | Callable, argparse.Namespace]:
+def parse() -> tuple[str | Callable, argparse.Namespace]:
     """Parse command line arguments.
-
-    Args:
-        default_subcmd: The default subcommand to use if none is provided.
 
     Returns:
         A tuple of:
@@ -51,15 +46,20 @@ def parse(
     )
     subparsers = parser.add_subparsers(dest="cmd", title="subcommands", required=True)
     parser_cfg = subparsers.add_parser("config", help="view or edit config")
-    parser_dl = subparsers.add_parser("download", help="download a song (default)")
+    parser_dl = subparsers.add_parser(
+        "download", help="download a song (default w/ args)"
+    )
     parser_ls = subparsers.add_parser("list", help="list all songs")
     parser_web = subparsers.add_parser("web", help="run the web UI")
+    parser_gui = subparsers.add_parser(
+        "gui", help="open the desktop app (default w/o args)"
+    )
     parser_v = subparsers.add_parser("version", help=version_action.help)
-    assert default_subcmd in subparsers.choices.keys()
     parser_cfg.set_defaults(subcmd="config")
     parser_dl.set_defaults(subcmd="download")
     parser_ls.set_defaults(subcmd="list")
     parser_web.set_defaults(subcmd="web")
+    parser_gui.set_defaults(subcmd="gui")
     parser_v.set_defaults(
         subcmd=lambda: version_action(parser, argparse.Namespace(), [])
     )
@@ -93,7 +93,7 @@ def parse(
         type=str,
         help="USDB login session cookie for API requests.",
     )
-    for p in [parser_dl, parser_ls, parser_web]:
+    for p in [parser_dl, parser_ls, parser_web, parser_gui]:
         p.add_argument(
             "-o",
             "--output-dir",
@@ -102,7 +102,7 @@ def parse(
             default=__app__.user_data_path / "songs",
             help="Output directory. (default: %(default)s)",
         )
-    for p in [parser_dl, parser_web]:
+    for p in [parser_dl, parser_web, parser_gui]:
         p.add_argument(
             "-m",
             "--models-dir",
@@ -223,34 +223,35 @@ def parse(
         default=8000,
         help="Port to run the web UI on. (default: %(default)s)",
     )
-    parser_web.add_argument(
-        "--data-dir",
-        type=Path,
-        default=__app__.user_data_path / "data",
-        help="Data directory for the web UI. (default: %(default)s)",
-    )
-    parser_web.add_argument(
-        "--log-level",
-        type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
-        default="warning",
-        help="Server log level. Mostly for development/debugging. "
-        "(default: %(default)s)",
-    )
-    parser_web.add_argument(
-        "--tee",
-        action="store_true",
-        help="Print logs to stdout/stderr in addition to the web UI.",
-    )
+    for p in [parser_web, parser_gui]:
+        p.add_argument(
+            "--data-dir",
+            type=Path,
+            default=__app__.user_data_path / "data",
+            help="Data directory for the web UI. (default: %(default)s)",
+        )
+        p.add_argument(
+            "--log-level",
+            type=str,
+            choices=["debug", "info", "warning", "error", "critical"],
+            default="warning",
+            help="Server log level. Mostly for development/debugging. "
+            "(default: %(default)s)",
+        )
+        p.add_argument(
+            "--tee",
+            action="store_true",
+            help="Print logs to stdout/stderr in addition to the web UI.",
+        )
+        p.add_argument(
+            "--unlocked-settings",
+            action="store_true",
+            help="Unlock the settings page in the web UI.",
+        )
     parser_web.add_argument(
         "--no-browser",
         action="store_true",
         help="Don't automatically open the web UI in default browser.",
-    )
-    parser_web.add_argument(
-        "--unlocked-settings",
-        action="store_true",
-        help="Unlock the settings page in the web UI.",
     )
 
     # handle default subcommand
@@ -261,7 +262,11 @@ def parse(
         parser.exit_on_error = True  # type: ignore
     except argparse.ArgumentError as e:
         if e.argument_name == "cmd":
-            argv.insert(0, default_subcmd)
+            # with arguments default to download
+            argv.insert(0, "download")
+        else:
+            # without any arguments default to gui
+            argv.insert(0, "gui")
 
     args = parser.parse_args(argv)
     subcmd = args.subcmd

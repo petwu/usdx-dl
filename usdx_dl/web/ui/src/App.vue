@@ -5,6 +5,7 @@ import AppSettings from "@/components/AppSettings.vue"
 import QueueItem from "@/components/QueueItem.vue"
 import ScrollContainer from "@/components/ScrollContainer.vue"
 import SongCard from "@/components/SongCard.vue"
+import SongsFolder from "@/components/SongsFolder.vue"
 import ThemeSwitcher from "@/components/ThemeSwitcher.vue"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,10 +44,11 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 
 // backend state
+const tools = ref<Tool[]>([])
+const songsFolder = ref<string | null>(null)
 const songs = ref<(SongMetadata & { id: string })[]>([])
 const songsIntervalHandle = ref<number | null>(null)
 const state = ref<ServerState>({ processing: null, queue: [] })
-const tools = ref<Tool[]>([])
 const stateIntervalHandle = ref<number | null>(null)
 const settings = ref<Settings | null>(null)
 const settingsIntervalHandle = ref<number | null>(null)
@@ -285,8 +287,17 @@ async function retryQueueItem(item: PipelineContext) {
   )
 }
 
-async function openSongFolder(id: string) {
-  fetch(apiUrl("open-folder"), {
+async function fetchSongsFolder() {
+  const response = await fetch(apiUrl("songs/directory"))
+  if (response.ok) {
+    songsFolder.value = await response.json()
+  } else {
+    await addError("Failed to fetch songs folder", response)
+  }
+}
+
+async function openSongFolder(id?: string) {
+  fetch(apiUrl("songs/directory"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id }),
@@ -350,6 +361,7 @@ onMounted(async () => {
   const pullIntervalSlow = import.meta.env.DEV ? 5000 : 10000
   const pullIntervalFast = import.meta.env.DEV ? 5000 : 1000
   await fetchTools()
+  fetchSongsFolder()
   connectWebSocket()
   fetchSettings()
   settingsIntervalHandle.value = setInterval(fetchSettings, pullIntervalSlow)
@@ -435,12 +447,15 @@ onUnmounted(() => {
     </main>
   </template>
   <template v-else>
-    <header class="flex items-center justify-between gap-2 p-4">
+    <header
+      v-if="settings && !settings.isWebview"
+      class="flex items-center justify-between gap-2 p-2 pb-0"
+    >
       <img :src="Logo" alt="" class="size-9" />
       <span class="text-xl font-bold">usdx-dl</span>
       <ThemeSwitcher />
     </header>
-    <main class="flex min-h-0 grow flex-col gap-2 p-4 pt-0">
+    <main class="flex min-h-0 grow flex-col gap-2 p-2">
       <div class="flex gap-2">
         <Input
           v-model="link"
@@ -652,19 +667,39 @@ onUnmounted(() => {
           </div>
         </TabContent>
         <TabContent id="tab-settings" class="min-h-0">
-          <ScrollContainer direction="y" class="h-full">
-            <AppSettings
-              v-model:settings="settings"
-              v-model:pin="pinValue"
-              v-model:tools="tools"
-              :pinValid="pinValid"
-            />
-          </ScrollContainer>
+          <div class="bg-card h-full rounded border">
+            <ScrollContainer direction="y" class="h-full">
+              <AppSettings
+                v-model:settings="settings"
+                v-model:pin="pinValue"
+                v-model:tools="tools"
+                :songsFolder="songsFolder"
+                :pinValid="pinValid"
+                @open-folder="openSongFolder"
+              >
+                <template v-if="songsFolder">
+                  <hr />
+                  <SongsFolder
+                    :songsFolder="songsFolder"
+                    @open-folder="openSongFolder"
+                  />
+                </template>
+              </AppSettings>
+            </ScrollContainer>
+          </div>
         </TabContent>
         <TabContent id="tab-instructions" class="min-h-0">
-          <ScrollContainer direction="y" class="h-full">
-            <AppInstructions />
-          </ScrollContainer>
+          <div class="bg-card h-full rounded border">
+            <ScrollContainer direction="y" class="h-full">
+              <AppInstructions>
+                <SongsFolder
+                  v-if="songsFolder"
+                  :songsFolder="songsFolder"
+                  @open-folder="openSongFolder"
+                />
+              </AppInstructions>
+            </ScrollContainer>
+          </div>
         </TabContent>
       </Tabs>
     </main>

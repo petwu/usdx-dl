@@ -1,40 +1,11 @@
 """Web server state management."""
 
-import sys
 from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel, Field
 
-from usdx_dl import models
-
-
-def debugging() -> bool:
-    """Check if the program is running in debug mode.
-
-    Note:
-        This function uses a heuristic based on :func:`sys.gettrace` to detect
-        debug mode. It is not always accurate, but it is usually good enough.
-        This function should be used rarely and only for non-critical stuff,
-        as having different behavior in debug mode can be unexpected and
-        confusing. It is also recommended to use this function only to set
-        default values/behavior, and to provide a way to override it.
-
-    Returns:
-        bool: True if the program is running in debug mode, False otherwise.
-    """
-    # gettrace() is not part of the language specification, but of the CPython
-    # implementation. It is not guaranteed to exist in other Python implementations.
-    # Since Python 3.12, there is a new sys.monitoring module that provides an
-    # event monitoring API for tools like debuggers. It provides a near-zero
-    # overhead alternative to sys.gettrace(), therefore it is likely that debuggers
-    # will switch to using it if possible.
-    # See also https://stackoverflow.com/q/38634988.
-    if sys.version_info >= (3, 12):
-        # pylint: disable=no-member
-        if sys.monitoring.get_tool(sys.monitoring.DEBUGGER_ID) is not None:
-            return True
-    return getattr(sys, "gettrace", lambda: None)() is not None
+from usdx_dl import models, sys_utils
 
 
 class ServerConfig(BaseModel):
@@ -61,7 +32,7 @@ class ServerConfig(BaseModel):
         return (
             self.ui_build_dir.exists()  #
             and not self.no_browser
-            and not debugging()
+            and not sys_utils.debugging()
         )
 
     @property
@@ -80,9 +51,14 @@ class ServerConfig(BaseModel):
         return self.data_dir / "state.json"
 
     @property
+    def ui_dir(self) -> Path:
+        """Path to the user interface directory."""
+        return Path(__file__).parent / "ui"
+
+    @property
     def ui_build_dir(self) -> Path:
         """Path to the built user interface directory."""
-        return Path(__file__).parent / "ui" / "dist"
+        return self.ui_dir / "dist"
 
 
 class Settings(BaseModel):
@@ -95,6 +71,7 @@ class Settings(BaseModel):
     no_lyrics: bool = False
     no_video: bool = False
     pause_processing: bool = False
+    is_webview: bool = False
 
     model_config = models.config
 
@@ -134,6 +111,8 @@ class ServerState(BaseModel):
         return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
 
 
+# pylint: disable=invalid-name
+
 server_cfg: ServerConfig
 """Global server configuration. Externally initialized."""
 
@@ -142,3 +121,8 @@ settings: Settings
 
 processing_state: ServerState
 """Global server state. Externally initialized."""
+
+if TYPE_CHECKING:
+    server_cfg = ServerConfig  # type: ignore
+    settings = Settings  # type: ignore
+    processing_state = ServerState  # type: ignore

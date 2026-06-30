@@ -49,20 +49,26 @@ async def api_songs() -> list[ExtendedSongMetadata]:
     ]
 
 
-class OpenFolderRequest(BaseModel):
-    """Request type for the /open-folder endpoint."""
+class SongsDirectoryRequest(BaseModel):
+    """Request type for the /songs/directory endpoint."""
 
     id: str | None = None
 
     model_config = models.config
 
 
-@router.post("/open-folder")
-async def api_open_folder(req: OpenFolderRequest):
+@router.get("/songs/directory")
+async def api_songs_directory() -> str:
+    """Get the path to the output directory."""
+    return str(state.server_cfg.output_dir)
+
+
+@router.post("/songs/directory")
+async def api_songs_directory_open(req: SongsDirectoryRequest | None = None) -> None:
     """Open the output directory or a specific song directory in the file explorer."""
     path = (
         state.server_cfg.output_dir / str(req.id)
-        if req.id
+        if req and req.id
         else state.server_cfg.output_dir
     )
     if not path.exists():

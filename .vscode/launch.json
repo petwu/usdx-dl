@@ -23,6 +23,16 @@
       "args": ["web", "--tee", "--host", "0.0.0.0"],
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+      "name": "gui",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "usdx_dl",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "console": "integratedTerminal",
+      "justMyCode": false
     }
   ]
 }

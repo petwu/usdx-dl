@@ -12,6 +12,7 @@ dependencies = [
     "onnxruntime",
     "platformdirs",
     "pyhyphen",
+    "pywebview[qt,ssl]",
     "swift-f0",
     "torch",
     "torchaudio",

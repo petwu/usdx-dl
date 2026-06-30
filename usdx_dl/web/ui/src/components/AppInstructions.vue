@@ -25,7 +25,7 @@ const props = defineProps<{
     :class="
       cn(
         'prose',
-        'bg-card max-w-none rounded border p-4 text-justify',
+        'max-w-none p-4 text-justify',
         '[&_svg]:mb-0.5 [&_svg]:inline [&_svg]:size-4',
         props.class,
       )
@@ -132,5 +132,6 @@ const props = defineProps<{
       The <TabLink id="tab-settings">Settings</TabLink> tab allows you to configure
       various options for the tool, e.g. which AI models to use for individual tasks.
     </p>
+    <slot />
   </div>
 </template>

@@ -18,6 +18,7 @@ export type Settings = {
   noLyrics: boolean
   noVideo: boolean
   pauseProcessing: boolean
+  isWebview: boolean
 }
 
 export type PipelineContext = Omit<Settings, "pauseProcessing" | "pin"> & {

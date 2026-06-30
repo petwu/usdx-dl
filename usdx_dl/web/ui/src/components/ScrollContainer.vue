@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { cn } from "@/lib/utils"
 import {
   computed,
   nextTick,
@@ -7,6 +8,7 @@ import {
   ref,
   useTemplateRef,
   watch,
+  type HTMLAttributes,
 } from "vue"
 
 type Direction = "x" | "y" | "xy" | "both"
@@ -18,6 +20,7 @@ const props = withDefaults(
     /** Whether to automatically scroll to the end of the content.
      * Can be restricted to only one axis even if the direction is "both". */
     autoScroll?: boolean | Direction
+    class?: HTMLAttributes["class"]
   }>(),
   {
     direction: "y",
@@ -118,7 +121,17 @@ const overflowStyle = computed(() => {
 </script>
 
 <template>
-  <div ref="containerRef" :style="overflowStyle" @scroll.passive="handleScroll">
+  <div
+    ref="containerRef"
+    :style="overflowStyle"
+    :class="
+      cn(
+        'scrollbar-thumb-foreground/50 scrollbar-thin scrollbar-track-transparent',
+        props.class,
+      )
+    "
+    @scroll.passive="handleScroll"
+  >
     <slot />
   </div>
 </template>

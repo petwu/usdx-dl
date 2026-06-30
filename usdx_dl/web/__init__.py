@@ -6,7 +6,6 @@ import webbrowser
 from contextlib import asynccontextmanager
 from threading import Thread
 
-import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,6 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from usdx_dl import ansi, models
 from usdx_dl.interactive import CliPrompt
 from usdx_dl.web import api, state, worker, ws
+from usdx_dl.web.state import ServerConfig
+
+__all__ = ["init_server", "ServerConfig"]
 
 
 @asynccontextmanager
@@ -39,10 +41,13 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
         worker_thread.join(timeout=3)
 
 
-def main(**kwargs) -> None:
+def init_server(**kwargs) -> tuple[ServerConfig, FastAPI]:
     """Args: See :func:`..cli.args.parse`."""
     # initialize the server config, settings and state
-    state.server_cfg = state.ServerConfig(**kwargs)
+    is_webview = kwargs.pop("webview", False)
+    if is_webview:
+        kwargs["no_browser"] = True
+    state.server_cfg = ServerConfig(**kwargs)
     state.server_cfg.output_dir.mkdir(parents=True, exist_ok=True)
     state.server_cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     state.server_cfg.log_path.write_text("", encoding="utf-8")
@@ -50,6 +55,7 @@ def main(**kwargs) -> None:
         state.settings = state.Settings.load()
     else:
         state.settings = state.Settings()
+    state.settings.is_webview = is_webview
     if not state.server_cfg.unlocked_settings and state.settings.pin is None:
         hint = CliPrompt.string(
             "Set a numeric PIN for the settings page (leave blank to disable)",
@@ -76,21 +82,28 @@ def main(**kwargs) -> None:
     if state.server_cfg.ui_build_dir.exists():
         app.mount("/", StaticFiles(directory=state.server_cfg.ui_build_dir, html=True))
 
-    # print startup messages
-    print(f"Web UI running at: {ansi.CYAN}{state.server_cfg.url}{ansi.RESET}")
-    if state.server_cfg.host == "0.0.0.0":
+    return state.server_cfg, app
+
+
+def print_server_info(cfg: ServerConfig) -> None:
+    """Print server startup messages to the console."""
+    print(f"Web UI running at: {ansi.CYAN}{cfg.url}{ansi.RESET}")
+    if cfg.host == "0.0.0.0":
         hostname = socket.gethostname()
         ip = socket.gethostbyname(hostname)
-        lan_url = f"http://{ip}:{state.server_cfg.port}/"
+        lan_url = f"http://{ip}:{cfg.port}/"
         print(f"LAN-accessible at: {ansi.CYAN}{lan_url}{ansi.RESET}")
-    if not state.server_cfg.unlocked_settings and state.settings.pin:
+    if not cfg.unlocked_settings and state.settings.pin:
         hint = "*" * len(state.settings.pin)
         print(f"{ansi.DIM}Settings page is protected by a PIN ({hint}).{ansi.RESET}")
 
-    # start the server
-    uvicorn.run(
-        app,
-        host=state.server_cfg.host,
-        port=state.server_cfg.port,
-        log_level=state.server_cfg.log_level,
-    )
+
+def is_server_running(host: str, port: int) -> bool:
+    """Check if the server is already running on the given host and port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.settimeout(0.5)
+            s.connect((host, port))
+            return True
+        except (ConnectionRefusedError, OSError):
+            return False
