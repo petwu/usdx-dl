@@ -15,6 +15,7 @@ import { apiUrl, websocketUrl } from "@/lib/host"
 import { cn } from "@/lib/utils"
 import { sref } from "@/lib/vue-utils"
 import type {
+  MsgType,
   PipelineContext,
   ServerState,
   Settings,
@@ -324,7 +325,7 @@ function connectWebSocket() {
 }
 
 type WebSocketMessage = {
-  type: string
+  type: MsgType
   data: any
 }
 
@@ -333,6 +334,7 @@ async function handleWebSocketMessage(msg: string) {
   try {
     const { type, data }: WebSocketMessage = JSON.parse(msg)
     switch (type) {
+      // stdout/stderr captured from the backend process
       case "log":
         const logLine = ansiToHtml(data.text)
         if (logBuffer.value.length > 0 && data.override) {
@@ -346,9 +348,29 @@ async function handleWebSocketMessage(msg: string) {
           logBuffer.value.shift()
         }
         break
+
+      // error messages from e.g. the worker thread
       case "error":
         addError(data)
         break
+
+      // updates to server-side state outside the setInterval fetches
+      case "update":
+        switch (data.what) {
+          case "state":
+            state.value = data.payload
+            break
+          case "settings":
+            settings.value = data.payload
+            break
+          case "songs":
+            songs.value = data.payload
+            break
+          default:
+            addError(`Unhandled update type: ${data.what}`, data)
+        }
+        break
+
       default:
         addError(`Unknown WebSocket message type: ${type}`, data)
     }
@@ -358,17 +380,15 @@ async function handleWebSocketMessage(msg: string) {
 }
 
 onMounted(async () => {
-  const pullIntervalSlow = import.meta.env.DEV ? 5000 : 10000
-  const pullIntervalFast = import.meta.env.DEV ? 5000 : 1000
   await fetchTools()
   fetchSongsFolder()
   connectWebSocket()
   fetchSettings()
-  settingsIntervalHandle.value = setInterval(fetchSettings, pullIntervalSlow)
+  settingsIntervalHandle.value = setInterval(fetchSettings, 3000)
   fetchState()
-  stateIntervalHandle.value = setInterval(fetchState, pullIntervalFast)
+  stateIntervalHandle.value = setInterval(fetchState, import.meta.env.DEV ? 5000 : 1000)
   fetchSongs()
-  songsIntervalHandle.value = setInterval(fetchSongs, pullIntervalSlow)
+  songsIntervalHandle.value = setInterval(fetchSongs, 5000)
   mounted.value = true
 })
 onUnmounted(() => {

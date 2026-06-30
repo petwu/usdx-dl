@@ -17,6 +17,7 @@ dependencies = [
     "torch",
     "torchaudio",
     "torchvision",
+    "watchdog",
     "whisperx~=3.8",
 ]
 

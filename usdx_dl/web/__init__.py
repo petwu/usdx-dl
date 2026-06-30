@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from usdx_dl import ansi, models
+from usdx_dl import ansi, cli, models
 from usdx_dl.interactive import CliPrompt
 from usdx_dl.web import api, state, worker, ws
 from usdx_dl.web.state import ServerConfig
@@ -27,17 +27,46 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
         log_path=state.server_cfg.log_path,
         tee=state.server_cfg.tee,
     ):
+        # start worker thread
         worker_thread = Thread(target=worker.loop, daemon=True)
         worker_thread.start()
 
+        # open browser if requested
         if state.server_cfg.open_browser:
             loop.call_soon(
                 lambda: webbrowser.open(state.server_cfg.url, new=2, autoraise=True)
             )
 
+        # set up file system watchers that push updates to the web UI when files change
+        fs_observers = [
+            ws.fs_watch(
+                "state",
+                state.server_cfg.state_path,
+                state.processing_state.model_dump,
+            ),
+            ws.fs_watch(
+                "settings",
+                state.server_cfg.settings_path,
+                state.settings.model_dump,
+            ),
+            ws.fs_watch(
+                "songs",
+                state.server_cfg.output_dir,
+                lambda: cli.list.find_songs(
+                    output_dir=state.server_cfg.output_dir,
+                    sort_by="artist",
+                    reverse=False,
+                ),
+            ),
+        ]
+
         yield
 
+        # stop all background threads
         worker.stop_event.set()
+        for o in fs_observers:
+            o.stop()
+            o.join(timeout=1)
         worker_thread.join(timeout=3)
 
 
@@ -67,6 +96,7 @@ def init_server(**kwargs) -> tuple[ServerConfig, FastAPI]:
     state.settings.usdb_cookie = cfg.usdb_cookie or state.settings.usdb_cookie
     state.settings.save()
     state.processing_state = state.ServerState.load()
+    state.processing_state.save()
 
     # instantiate the server and mount the routes
     app = FastAPI(lifespan=lifespan)

@@ -29,24 +29,14 @@ async def api_tools_download() -> None:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-class ExtendedSongMetadata(models.SongMetadata):
-    """Extended song metadata with additional fields for the web API."""
-
-    id: str
-
-
 @router.get("/songs")
-async def api_songs() -> list[ExtendedSongMetadata]:
+async def api_songs() -> list[cli.list.ExtendedSongMetadata]:
     """Get a list of all songs."""
-    song_list = cli.list.find_songs(
+    return cli.list.find_songs(
         output_dir=state.server_cfg.output_dir,
         sort_by="artist",
         reverse=False,
     )
-    return [
-        ExtendedSongMetadata(id=path.name, **meta.model_dump())
-        for path, meta in song_list
-    ]
 
 
 class SongsDirectoryRequest(BaseModel):

@@ -28,9 +28,9 @@ def main(
     order = __order(sort_by)
     cols = ["Artist", "Title", "Directory"]
     col_widths = [
-        max(len(meta.artist) for _, meta in meta_list),
-        max(len(meta.title) for _, meta in meta_list),
-        max(len(str(song_dir)) for song_dir, _ in meta_list),
+        max(len(meta.artist) for meta in meta_list),
+        max(len(meta.title) for meta in meta_list),
+        max(len(str(output_dir / meta.id)) for meta in meta_list),
     ]
     col_gap = " " * 3
     print(
@@ -45,31 +45,36 @@ def main(
         + ansi.RESET
     )
     print("-" * (sum(col_widths) + len(col_gap) * (len(cols) - 1)))
-    for song_dir, meta in meta_list:
+    for meta in meta_list:
         cols = [
             f"{ansi.BOLD}{ansi.CYAN}{meta.artist:{col_widths[0]}}{ansi.RESET}",
             f"{ansi.MAGENTA}{meta.title:{col_widths[1]}}{ansi.RESET}",
-            f"{ansi.DIM}{str(song_dir):{col_widths[2]}}{ansi.RESET}",
+            f"{ansi.DIM}{str(output_dir / meta.id):{col_widths[2]}}{ansi.RESET}",
         ]
         print(col_gap.join(cols[i] for i in order))
+
+
+class ExtendedSongMetadata(SongMetadata):
+    """Extended song metadata with additional fields for the web API."""
+
+    id: str
 
 
 def find_songs(
     output_dir: Path,
     sort_by: Literal["artist", "title", "id"],
     reverse: bool,
-) -> list[tuple[Path, SongMetadata]]:
-    """Find all songs in the output directory and return a list of
-    (song_dir, metadata) tuples."""
+) -> list[ExtendedSongMetadata]:
+    """Find all songs in the output directory and return a list of metadata objects."""
 
-    meta_list: list[tuple[Path, SongMetadata]] = []
+    meta_list: list[ExtendedSongMetadata] = []
     for song_dir in sorted(output_dir.glob("*")):
         meta_path = song_dir / "metadata.json"
         txt_path = song_dir / "song.txt"
         if not song_dir.is_dir() or not meta_path.exists() or not txt_path.exists():
             continue
         meta = models.from_json(SongMetadata, meta_path)
-        meta_list.append((song_dir, meta))
+        meta_list.append(ExtendedSongMetadata(id=song_dir.name, **meta.model_dump()))
     if len(meta_list) == 0:
         return []
 
@@ -92,9 +97,8 @@ def __order(sort_by: Literal["artist", "title", "id"]) -> list[int]:
 def __sort_key(order: list[int], natural: bool = False):
     assert len(order) == 3 and set(order) == {0, 1, 2}
 
-    def fn(item: tuple[Path, SongMetadata]) -> str | list[int | str]:
-        song_dir, meta = item
-        sort_info = [meta.artist, meta.title, song_dir.name]
+    def fn(meta: ExtendedSongMetadata) -> str | list[int | str]:
+        sort_info = [meta.artist, meta.title, meta.id]
         sort_info = [sort_info[i] for i in order]
         sort_str = " ".join(str(x) for x in sort_info).lower()
         if natural:

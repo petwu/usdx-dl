@@ -42,3 +42,5 @@ export type Tool = {
   downloadUrl: string
   homepage: string
 }
+
+export type MsgType = "log" | "error" | "update"

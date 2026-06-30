@@ -4,14 +4,17 @@ import asyncio
 import os
 import sys
 import threading
+import time
 from collections import deque
 from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Sequence
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic_core import to_json
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 
 __all__ = ["router", "capture_output", "broadcast"]
 
@@ -21,6 +24,7 @@ class MsgType(StrEnum):
 
     LOG = "log"
     ERROR = "error"
+    UPDATE = "update"
 
 
 class ConnectionManager:
@@ -56,7 +60,7 @@ class ConnectionManager:
     def broadcast(self, msg_type: MsgType, data: Any) -> None:
         """Broadcast a message to all connected WebSocket clients and append it
         to the log file."""
-        if self.loop and manager and data.strip():
+        if self.loop and manager:
             asyncio.run_coroutine_threadsafe(self._broadcast(msg_type, data), self.loop)
 
     async def _broadcast(self, msg_type: MsgType, data: Any) -> None:
@@ -154,6 +158,87 @@ def capture_output(loop: asyncio.AbstractEventLoop, log_path: Path, tee: bool = 
     finally:
         for c in reversed(captures):
             c.restore()
+
+
+class DebouncedWebSocketHandler(FileSystemEventHandler):
+    """A watchdog event handler that sends debounced websocket messages."""
+
+    def __init__(
+        self,
+        what: str,
+        payload_fn: Callable[[], Any],
+        event_types: Sequence[str] | None = None,
+        debounce_seconds: float | None = None,
+    ):
+        super().__init__()
+        self.what = what
+        self.payload_fn = payload_fn
+        self.event_types = event_types
+        self.debounce_seconds = debounce_seconds
+        self.last_event_time = 0.0
+
+    def on_any_event(self, event: FileSystemEvent) -> None:
+        # skip directories and non-matching event types
+        if event.is_directory or (
+            self.event_types is not None and event.event_type not in self.event_types
+        ):
+            return
+
+        # fire only every debounce_seconds to avoid fetch this payload too often or
+        # flooding the websocket with too many messages
+        now = time.perf_counter()
+        if (
+            self.debounce_seconds is not None
+            and now - self.last_event_time < self.debounce_seconds
+        ):
+            return
+        self.last_event_time = now
+
+        # send the update message to all connected websocket clients
+        data = {
+            "what": self.what,
+            "payload": self.payload_fn(),
+            "trigger": event.src_path,
+            "reason": event.event_type,
+        }
+        broadcast(MsgType.UPDATE, data)
+
+
+def fs_watch(
+    what: str,
+    path: Path | str,
+    payload_fn: Callable[[], Any],
+    event_types: Sequence[str] | None = ("created", "modified", "deleted", "moved"),
+    debounce_seconds: float = 0.1,
+):
+    """Watch a file or directory for changes.
+
+    Args:
+        what: A string describing what is being watched. Can be used by the client to
+            differentiate between different types of updates/payloads.
+        path: The path to the file or directory to watch.
+        payload_fn: A function that returns the payload to send to the websocket
+            when a change is detected.
+        event_types: A list of event types to watch for.
+        debounce_seconds: Minimum time in seconds between consecutive websocket
+            messages. This is useful to avoid flooding the websocket with too many
+            messages when a file is being written to in multiple steps.
+    """
+    path = Path(path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Cannot watch '{what}': {path} does not exist.")
+
+    handler = DebouncedWebSocketHandler(
+        what=what,
+        payload_fn=payload_fn,
+        event_types=event_types,
+        debounce_seconds=debounce_seconds,
+    )
+    observer = Observer()
+    observer.schedule(handler, str(path), recursive=path.is_dir())
+    observer.start()
+    return observer
 
 
 router = APIRouter()
