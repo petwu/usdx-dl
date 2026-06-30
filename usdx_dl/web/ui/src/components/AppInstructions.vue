@@ -24,7 +24,9 @@ const props = defineProps<{
   <div
     :class="
       cn(
-        'prose max-w-none p-4 text-justify [&_svg]:mb-0.5 [&_svg]:inline [&_svg]:size-4',
+        'prose',
+        'bg-card max-w-none rounded border p-4 text-justify',
+        '[&_svg]:mb-0.5 [&_svg]:inline [&_svg]:size-4',
         props.class,
       )
     "

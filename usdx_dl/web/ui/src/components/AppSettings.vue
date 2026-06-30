@@ -5,12 +5,14 @@ import Label from "@/components/ui/label/Label.vue"
 import RadioGroup from "@/components/ui/radio-group/RadioGroup.vue"
 import RadioGroupItem from "@/components/ui/radio-group/RadioGroupItem.vue"
 import Switch from "@/components/ui/switch/Switch.vue"
+import { cn } from "@/lib/utils"
 import type { Settings, Tool } from "@/types/api"
 import { AlertTriangle, Check, Info, KeyRound } from "@lucide/vue"
-import { computed, ref } from "vue"
+import { computed, ref, type HTMLAttributes } from "vue"
 
 const props = defineProps<{
   pinValid?: boolean
+  class?: HTMLAttributes["class"]
 }>()
 
 const settings = defineModel<Settings | null>("settings")
@@ -31,7 +33,7 @@ function updatePin() {
 </script>
 
 <template>
-  <div class="bg-card flex flex-col gap-4 rounded border p-4">
+  <div :class="cn('bg-card flex flex-col gap-4 rounded border p-4', props.class)">
     <template v-if="settings && requiresPin">
       <h3 class="text-lg font-bold">PIN</h3>
       <div class="grid w-fit grid-cols-[1fr_auto] items-center gap-2">
