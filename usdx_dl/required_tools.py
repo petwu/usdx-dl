@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import tarfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -26,10 +27,13 @@ def private_bin_dir() -> Path:
 def query() -> list[Tool]:
     """Return a list of all required tools."""
     bin_dir = private_bin_dir()
-    ffmpeg_path = shutil.which("ffmpeg") or bin_dir / "ffmpeg"
-    ffmpeg = __query_ffmpeg(Path(ffmpeg_path))
-    yt_dlp_path = shutil.which("yt-dlp") or bin_dir / "yt-dlp"
-    yt_dlp = __query_yt_dlp(Path(yt_dlp_path))
+
+    ffmpeg_path = Path(shutil.which("ffmpeg") or bin_dir / "ffmpeg")
+    ffmpeg = __query_ffmpeg(ffmpeg_path, bin_dir / "ffmpeg_latest.txt")
+
+    yt_dlp_path = Path(shutil.which("yt-dlp") or bin_dir / "yt-dlp")
+    yt_dlp = __query_yt_dlp(yt_dlp_path, bin_dir / "yt-dlp_latest.txt")
+
     return [ffmpeg, yt_dlp]
 
 
@@ -115,20 +119,33 @@ def __extract_if_necessary(tool: Tool) -> None:
         pass
 
 
-def __query_ffmpeg(ffmpeg_path: Path) -> Tool:
+def __query_ffmpeg(
+    ffmpeg_path: Path,
+    latest_cache: Path,
+    cache_age: int = 86400,  # 1 day in seconds
+) -> Tool:
     """Query ffmpeg tool information."""
-    url = "https://ffmpeg.org/download.html"
-    with requests.get(url, timeout=10) as response:
-        html = response.text
-    match = re.search(r"ffmpeg-(\d+\.\d+\.\d+)\.tar\.xz", html)
-    if not match:
-        raise RuntimeError("Could not find FFmpeg version")
-    latest = Version(match.group(1))
-    match = re.search(r"release.+(\d{4})-(\d{2})-(\d{2})", html)
-    latest_year = None
-    if match:
-        year, month, day = match.groups()
-        latest_year = Version(f"{year}.{month}.{day}")
+    now = time.time()
+    if latest_cache.exists() and latest_cache.stat().st_mtime > now - cache_age:
+        cache = latest_cache.read_text(encoding="utf-8").splitlines()[:2]
+        latest = Version(cache[0])
+        latest_year = Version(cache[1]) if len(cache) > 1 and cache[1] else None
+    else:
+        url = "https://ffmpeg.org/download.html"
+        with requests.get(url, timeout=10) as response:
+            html = response.text
+        match = re.search(r"ffmpeg-(\d+\.\d+\.\d+)\.tar\.xz", html)
+        if not match:
+            raise RuntimeError("Could not find FFmpeg version")
+        latest = Version(match.group(1))
+        match = re.search(r"release.+(\d{4})-(\d{2})-(\d{2})", html)
+        latest_year = None
+        if match:
+            year, month, day = match.groups()
+            latest_year = Version(f"{year}.{month}.{day}")
+        latest_cache.parent.mkdir(parents=True, exist_ok=True)
+        latest_cache.write_text(f"{latest}\n{latest_year or ''}", encoding="utf-8")
+
     current = None
     try:
         result = subprocess.run(
@@ -178,12 +195,23 @@ def __query_ffmpeg(ffmpeg_path: Path) -> Tool:
     )
 
 
-def __query_yt_dlp(yt_dlp_path: Path) -> Tool:
+def __query_yt_dlp(
+    yt_dlp_path: Path,
+    latest_cache: Path,
+    cache_age: int = 86400,  # 1 day in seconds
+) -> Tool:
     """Query yt-dlp tool information."""
-    url = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
-    with requests.get(url, timeout=10) as response:
-        data = response.json()
-    latest = Version(data["tag_name"])
+    now = time.time()
+    if latest_cache.exists() and latest_cache.stat().st_mtime > now - cache_age:
+        latest = Version(latest_cache.read_text(encoding="utf-8").strip())
+    else:
+        url = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
+        with requests.get(url, timeout=10) as response:
+            data = response.json()
+        latest = Version(data["tag_name"])
+        latest_cache.parent.mkdir(parents=True, exist_ok=True)
+        latest_cache.write_text(str(latest), encoding="utf-8")
+
     current = None
     try:
         result = subprocess.run(
