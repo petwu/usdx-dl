@@ -1,6 +1,7 @@
 """WebSocket endpoints."""
 
 import asyncio
+import inspect
 import os
 import sys
 import threading
@@ -165,12 +166,14 @@ class DebouncedWebSocketHandler(FileSystemEventHandler):
 
     def __init__(
         self,
+        loop: asyncio.AbstractEventLoop,
         what: str,
-        payload_fn: Callable[[], Any],
+        payload_fn: Callable[[], Any | asyncio.Future[Any]],
         event_types: Sequence[str] | None = None,
         debounce_seconds: float | None = None,
     ):
         super().__init__()
+        self.loop = loop
         self.what = what
         self.payload_fn = payload_fn
         self.event_types = event_types
@@ -195,9 +198,15 @@ class DebouncedWebSocketHandler(FileSystemEventHandler):
         self.last_event_time = now
 
         # send the update message to all connected websocket clients
+        if inspect.iscoroutinefunction(self.payload_fn):
+            payload = asyncio.run_coroutine_threadsafe(
+                self.payload_fn(), self.loop
+            ).result()
+        else:
+            payload = self.payload_fn()
         data = {
             "what": self.what,
-            "payload": self.payload_fn(),
+            "payload": payload,
             "trigger": event.src_path,
             "reason": event.event_type,
         }
@@ -205,6 +214,7 @@ class DebouncedWebSocketHandler(FileSystemEventHandler):
 
 
 def fs_watch(
+    loop: asyncio.AbstractEventLoop,
     what: str,
     path: Path | str,
     payload_fn: Callable[[], Any],
@@ -230,6 +240,7 @@ def fs_watch(
         raise FileNotFoundError(f"Cannot watch '{what}': {path} does not exist.")
 
     handler = DebouncedWebSocketHandler(
+        loop=loop,
         what=what,
         payload_fn=payload_fn,
         event_types=event_types,

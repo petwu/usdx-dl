@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from usdx_dl import ansi, cli, models
+from usdx_dl import ansi, models
 from usdx_dl.interactive import CliPrompt
 from usdx_dl.web import api, state, worker, ws
 from usdx_dl.web.state import ServerConfig
@@ -39,25 +39,11 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
 
         # set up file system watchers that push updates to the web UI when files change
         fs_observers = [
+            ws.fs_watch(loop, "state", state.server_cfg.state_path, api.api_state),
             ws.fs_watch(
-                "state",
-                state.server_cfg.state_path,
-                state.processing_state.model_dump,
+                loop, "settings", state.server_cfg.settings_path, api.api_settings
             ),
-            ws.fs_watch(
-                "settings",
-                state.server_cfg.settings_path,
-                state.settings.model_dump,
-            ),
-            ws.fs_watch(
-                "songs",
-                state.server_cfg.output_dir,
-                lambda: cli.list.find_songs(
-                    output_dir=state.server_cfg.output_dir,
-                    sort_by="artist",
-                    reverse=False,
-                ),
-            ),
+            ws.fs_watch(loop, "songs", state.server_cfg.output_dir, api.api_songs),
         ]
 
         yield
