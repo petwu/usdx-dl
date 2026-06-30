@@ -12,13 +12,13 @@ router = APIRouter(prefix="/api")
 
 
 @router.get("/tools")
-async def api_tools() -> list[models.Tool]:
+async def get_tools() -> list[models.Tool]:
     """Get a list of all available tools."""
     return required_tools.query()
 
 
 @router.post("/tools/download")
-async def api_tools_download() -> None:
+async def get_tools_download() -> None:
     """Download missing tools."""
     try:
         cfg = models.Config.load()
@@ -30,7 +30,7 @@ async def api_tools_download() -> None:
 
 
 @router.get("/songs")
-async def api_songs() -> list[cli.list.ExtendedSongMetadata]:
+async def get_songs() -> list[cli.list.ExtendedSongMetadata]:
     """Get a list of all songs."""
     return cli.list.find_songs(
         output_dir=state.server_cfg.output_dir,
@@ -48,13 +48,13 @@ class SongsDirectoryRequest(BaseModel):
 
 
 @router.get("/songs/directory")
-async def api_songs_directory() -> str:
+async def get_songs_directory() -> str:
     """Get the path to the output directory."""
     return str(state.server_cfg.output_dir)
 
 
 @router.post("/songs/directory")
-async def api_songs_directory_open(req: SongsDirectoryRequest | None = None) -> None:
+async def post_songs_directory_open(req: SongsDirectoryRequest | None = None) -> None:
     """Open the output directory or a specific song directory in the file explorer."""
     path = (
         state.server_cfg.output_dir / str(req.id)
@@ -67,13 +67,13 @@ async def api_songs_directory_open(req: SongsDirectoryRequest | None = None) -> 
 
 
 @router.get("/state")
-async def api_state() -> state.ServerState:
+async def get_state() -> state.ServerState:
     """Get the current server state."""
     return state.processing_state
 
 
 @router.get("/settings")
-async def api_settings() -> state.Settings:
+async def get_settings() -> state.Settings:
     """Get the current server settings."""
     plain_settings = state.settings.model_copy()
     plain_settings.pin = None if state.server_cfg.unlocked_settings else "****"
@@ -81,7 +81,7 @@ async def api_settings() -> state.Settings:
 
 
 @router.post("/settings")
-async def api_update_settings(settings: state.Settings):
+async def post_settings(settings: state.Settings):
     """Update the server settings."""
     if state.server_cfg.unlocked_settings:
         settings.pin = state.settings.pin
@@ -103,7 +103,7 @@ class PauseRequest(BaseModel):
 
 
 @router.post("/pause")
-async def api_pause(req: PauseRequest) -> None:
+async def post_pause(req: PauseRequest) -> None:
     """Pause the processing queue."""
     state.settings.pause_processing = req.value
     state.settings.save()
@@ -118,7 +118,7 @@ class EnqueueRequest(BaseModel):
 
 
 @router.post("/enqueue")
-async def api_enqueue(req: EnqueueRequest) -> models.PipelineContext:
+async def post_enqueue(req: EnqueueRequest) -> models.PipelineContext:
     """Prepare a download request and add it to the queue."""
     ctx = models.PipelineContext(
         uuid=cli.download.ctx_uuid(),
@@ -145,7 +145,7 @@ async def api_enqueue(req: EnqueueRequest) -> models.PipelineContext:
 
 
 @router.post("/dequeue")
-async def api_dequeue(ctx: models.PipelineContext):
+async def post_dequeue(ctx: models.PipelineContext):
     """Remove a queued item from the queue."""
     idx = find_ctx(ctx, state.processing_state.queue)
     del state.processing_state.queue[idx]
@@ -163,7 +163,7 @@ class MoveRequest(BaseModel):
 
 
 @router.post("/move")
-async def api_move(req: MoveRequest):
+async def post_move(req: MoveRequest):
     """Move a queued item up or down in the queue."""
     idx = find_ctx(req.item, state.processing_state.queue)
     if req.direction == "up":
@@ -180,7 +180,7 @@ async def api_move(req: MoveRequest):
 
 
 @router.post("/update")
-async def api_update(ctx: models.PipelineContext):
+async def post_update(ctx: models.PipelineContext):
     """Update the metadata of a queued item."""
     ctx.meta = cli.download.update_metadata(ctx)
     idx = find_ctx(ctx, state.processing_state.queue)
@@ -189,7 +189,7 @@ async def api_update(ctx: models.PipelineContext):
 
 
 @router.post("/retry")
-async def api_retry(ctx: models.PipelineContext):
+async def post_retry(ctx: models.PipelineContext):
     """Retry a failed queued item."""
     idx = find_ctx(ctx, state.processing_state.queue)
     state.processing_state.queue[idx].errors = None
