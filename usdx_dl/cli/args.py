@@ -99,7 +99,7 @@ def parse() -> tuple[str | Callable, argparse.Namespace]:
             "--output-dir",
             metavar="DIR",
             type=Path,
-            default=__app__.user_data_path / "songs",
+            default=__app__.user_music_path / "Karaoke",
             help="Output directory. (default: %(default)s)",
         )
     for p in [parser_dl, parser_web, parser_gui]:
