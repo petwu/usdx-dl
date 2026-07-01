@@ -10765,7 +10765,7 @@ var MusicBars_default = /* @__PURE__ */ defineComponent({
 		}
 		function startBars() {
 			stopBars();
-			intervals = new Array(props.bars);
+			intervals = Array.from({ length: props.bars }, () => 0);
 			for (let i = 0; i < props.bars; i++) startBar(i);
 		}
 		watch(() => props.playing, (val) => val ? startBars() : stopBars(), { immediate: true });

@@ -2,16 +2,15 @@
 
 import ast
 import re
-
 from pathlib import Path
 from typing import Literal
+
 import whisperx
-from whisperx.schema import SingleSegment, SingleAlignedSegment
 from num2words import num2words
+from whisperx.schema import SingleAlignedSegment, SingleSegment
 
 from usdx_dl import lyrics
 from usdx_dl.models import TranscribedData
-
 
 __all__ = ["transcribe"]
 
@@ -27,7 +26,7 @@ def transcribe(
     progress: bool = True,
 ) -> tuple[str, list[TranscribedData]]:
     """Transcribe an audio file into word-level items.
-    
+
     Args:
         audio_path: Path to the audio file. Preferably only vocals without music.
         lyrics_path: Path to a text file containing synced lyrics. If provided,

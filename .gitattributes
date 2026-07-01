@@ -1,11 +1,12 @@
 # generated frontend build output
-usdx_dl/web/dist/** linguist-generated
+dist/** linguist-generated
 
 # treat built assets as generated text with simple diffs
-usdx_dl/web/dist/**/*.js text eol=lf
-usdx_dl/web/dist/**/*.css text eol=lf
-usdx_dl/web/dist/**/*.html text eol=lf
-usdx_dl/web/dist/**/*.json text eol=lf
+dist/**/*.js text eol=lf
+dist/**/*.css text eol=lf
+dist/**/*.html text eol=lf
+dist/**/*.json text eol=lf
+dist/**/*.svg text eol=lf
 
 # binary assets
 *.png binary

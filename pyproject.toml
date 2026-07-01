@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "hatchling", "mypy", "pytest"]
+dev = ["black", "hatchling", "mypy", "pytest", "ruff"]
 
 [build-system]
 requires = ["hatchling"]
@@ -51,6 +51,9 @@ override-dependencies = [
     "torchcodec~=0.14.0",
 ]
 torch-backend = "auto"
+
+[tool.ruff]
+cache-dir = ".cache/ruff"
 
 [tool.pytest]
 cache_dir = ".cache/pytest"

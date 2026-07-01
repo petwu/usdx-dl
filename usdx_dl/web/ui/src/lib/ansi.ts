@@ -57,6 +57,7 @@ export function ansiToHtml(input: string): string {
   const escapeHtml = (str: string) =>
     str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
+  // oxlint-disable-next-line no-control-regex
   const ANSI_REGEX = /\x1b\[([0-9;]*)m/g
 
   let result = ""

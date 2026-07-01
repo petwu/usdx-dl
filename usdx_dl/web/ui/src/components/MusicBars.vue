@@ -54,7 +54,7 @@ function stopBars() {
 
 function startBars() {
   stopBars()
-  intervals = new Array(props.bars)
+  intervals = Array.from({ length: props.bars }, () => 0)
   for (let i = 0; i < props.bars; i++) startBar(i)
 }
 

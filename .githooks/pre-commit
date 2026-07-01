@@ -1,0 +1,66 @@
+#!/bin/sh
+set -eu
+
+
+# ANSI codes
+ansi_reset="\033[0m"
+ansi_bold="\033[1m"
+ansi_red="\033[31m"
+ansi_green="\033[32m"
+ansi_yellow="\033[33m"
+ansi_blue="\033[34m"
+ansi_magenta="\033[35m"
+ansi_cyan="\033[36m"
+
+
+# helper functions
+npm() {
+  pushd usdx_dl/web/ui >/dev/null
+  command npm "$@"
+  popd >/dev/null
+}
+
+step() {
+  echo -e "${ansi_bold}${ansi_magenta}[pre-commit] $1${ansi_reset}"
+}
+
+
+# venv
+if [ -d ".venv" ]; then
+  step "Using existing .venv"
+else
+  step "Creating new .venv"
+  uv venv
+fi
+. .venv/bin/activate
+uv pip install --editable ".[dev]"
+
+
+# node modules
+step "Installing Node.js dependencies"
+npm install
+
+
+# format
+step "Formatting Python"
+ruff check --select I --fix --exit-non-zero-on-fix  # sort imports
+ruff format --exit-non-zero-on-format
+step "Formatting JS/TS"
+npm run format
+
+
+# lint
+step "Linting Python"
+ruff check --fix --exit-non-zero-on-fix
+step "Linting JS/TS"
+npm run lint
+
+
+# build
+step "Building UI"
+npm run build
+
+
+# test
+step "Running Python tests"
+pytest -q

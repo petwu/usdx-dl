@@ -14,6 +14,7 @@ gethostname
 gettxt
 htdemucs
 hyphenator
+justfile
 librosa
 lrclib
 lucide
@@ -24,6 +25,7 @@ nums
 oklab
 oklch
 onnxruntime
+oxlint
 petwu
 PHPSESSID
 platformdirs
