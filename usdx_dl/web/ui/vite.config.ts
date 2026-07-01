@@ -6,4 +6,18 @@ import { defineConfig } from "vite"
 export default defineConfig({
   resolve: { alias: { "@": "/src", "#": "/assets" } },
   plugins: [vue(), tailwindcss()],
+  build: {
+    outDir: "../dist",
+    emptyOutDir: true,
+    minify: false,
+    manifest: false,
+    sourcemap: false,
+    rolldownOptions: {
+      output: {
+        entryFileNames: "[name].js",
+        chunkFileNames: "[name].js",
+        assetFileNames: "[name].[ext]",
+      },
+    },
+  },
 })

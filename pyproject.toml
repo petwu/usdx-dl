@@ -29,15 +29,14 @@ dev = ["black", "hatchling", "mypy", "pytest"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.hooks.custom]
-path = "build_hooks.py"
-
 [tool.hatch.build.targets.sdist]
-exclude = [".vscode", "usdx_dl/web/ui/node_modules"]
+exclude = [".vscode"]
+artifacts = ["usdx_dl/web/dist/**"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["usdx_dl"]
-exclude = ["usdx_dl/web/ui/node_modules"]
+exclude = [".vscode"]
+artifacts = ["usdx_dl/web/dist/**"]
 
 [project.scripts]
 usdx-dl = "usdx_dl.__main__:main"

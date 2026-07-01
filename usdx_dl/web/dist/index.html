@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+      const savedTheme = localStorage.getItem("color-mode")
+      if (
+        savedTheme === "dark" ||
+        (savedTheme === "auto" && prefersDark) ||
+        (!savedTheme && prefersDark)
+      ) {
+        document.documentElement.classList.add("dark")
+      }
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>usdx-dl</title>
+    <script type="module" crossorigin src="/index.js"></script>
+    <link rel="stylesheet" crossorigin href="/index.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

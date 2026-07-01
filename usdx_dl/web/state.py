@@ -58,7 +58,7 @@ class ServerConfig(BaseModel):
     @property
     def ui_build_dir(self) -> Path:
         """Path to the built user interface directory."""
-        return self.ui_dir / "dist"
+        return Path(__file__).parent / "dist"
 
 
 class Settings(BaseModel):

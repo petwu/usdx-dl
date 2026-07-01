@@ -50,6 +50,7 @@ usdx
 uvicorn
 venv
 vite
+webp
 whisperx
 ytimg
 ytsearch
