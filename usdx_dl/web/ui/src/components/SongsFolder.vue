@@ -33,6 +33,5 @@ const emit = defineEmits<{
   <pre>
 [Directories]
 SongDir1={{ props.songsFolder }}
-SongDir2=...</pre
-  >
+SongDir2=...</pre>
 </template>

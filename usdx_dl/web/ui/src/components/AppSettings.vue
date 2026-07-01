@@ -112,8 +112,7 @@ function updatePin() {
           <li>
             Run the following command in the console:
             <pre class="bg-muted my-0! mt-1 rounded p-2 text-sm whitespace-pre-wrap">
-(await cookieStore.get("PHPSESSID")).value</pre
-            >
+(await cookieStore.get("PHPSESSID")).value</pre>
           </li>
           <li>Copy the value and paste it into the above field.</li>
         </ol>

@@ -1,0 +1,7 @@
+# https://pnpm.io/settings
+# https://pnpm.io/supply-chain-security
+
+blockExoticSubdeps: true
+minimumReleaseAge: 4320 # 3 days
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 43200 # 30 days

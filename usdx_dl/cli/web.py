@@ -16,12 +16,12 @@ def main(**kwargs) -> None:
     cfg, app = web.init_server(**kwargs)
     web.print_server_info(cfg)
 
-    # for convenience, start the npm dev server if debugging
+    # for convenience, start the vite dev server if debugging
     if sys_utils.debugging():
-        print(f"{ansi.BOLD}Starting npm dev server ...{ansi.RESET}")
+        print(f"{ansi.BOLD}Starting vite dev server ...{ansi.RESET}")
         threading.Thread(
             target=subprocess.run,
-            args=(["npm", "run", "dev"],),
+            args=(["pnpm", "run", "dev"],),
             kwargs={"cwd": cfg.ui_dir, "check": True},
         ).start()
 

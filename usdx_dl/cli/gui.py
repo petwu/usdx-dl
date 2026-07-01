@@ -26,7 +26,7 @@ def main(**kwargs) -> None:
         **kwargs,
     )
     if sys_utils.debugging():
-        subprocess.run(["npm", "run", "build"], cwd=cfg.ui_dir, check=True)
+        subprocess.run(["pnpm", "run", "build"], cwd=cfg.ui_dir, check=True)
     t = threading.Thread(
         target=uvicorn.run,
         args=(app,),
