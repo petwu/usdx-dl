@@ -19,6 +19,7 @@ dependencies = [
     "torchvision",
     "watchdog",
     "whisperx~=3.8",
+    "yt-dlp",
 ]
 
 [project.optional-dependencies]

@@ -31,10 +31,7 @@ def query() -> list[Tool]:
     ffmpeg_path = Path(shutil.which("ffmpeg") or bin_dir / "ffmpeg")
     ffmpeg = __query_ffmpeg(ffmpeg_path, bin_dir / "ffmpeg_latest.txt")
 
-    yt_dlp_path = Path(shutil.which("yt-dlp") or bin_dir / "yt-dlp")
-    yt_dlp = __query_yt_dlp(yt_dlp_path, bin_dir / "yt-dlp_latest.txt")
-
-    return [ffmpeg, yt_dlp]
+    return [ffmpeg]
 
 
 def missing() -> list[Tool]:
@@ -192,58 +189,4 @@ def __query_ffmpeg(
         latest=str(latest),
         download_url=url,
         homepage="https://ffmpeg.org",
-    )
-
-
-def __query_yt_dlp(
-    yt_dlp_path: Path,
-    latest_cache: Path,
-    cache_age: int = 86400,  # 1 day in seconds
-) -> Tool:
-    """Query yt-dlp tool information."""
-    now = time.time()
-    if latest_cache.exists() and latest_cache.stat().st_mtime > now - cache_age:
-        latest = Version(latest_cache.read_text(encoding="utf-8").strip())
-    else:
-        url = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
-        with requests.get(url, timeout=10) as response:
-            data = response.json()
-        latest = Version(data["tag_name"])
-        latest_cache.parent.mkdir(parents=True, exist_ok=True)
-        latest_cache.write_text(str(latest), encoding="utf-8")
-
-    current = None
-    try:
-        result = subprocess.run(
-            [str(yt_dlp_path), "--version"],
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        output = result.stdout.decode("utf-8")
-        match = re.search(r"(\d+\.\d+\.\d+)", output)
-        if match:
-            current = Version(match.group(1))
-    except FileNotFoundError:
-        pass
-    # https://github.com/yt-dlp/yt-dlp#release-files
-    os_name = platform.system()
-    release_url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download"
-    match os_name:
-        case "Linux":
-            url = f"{release_url}/yt-dlp"
-        case "Darwin":
-            url = f"{release_url}/yt-dlp_macos"
-        case "Windows":
-            url = f"{release_url}/yt-dlp.exe"
-        case _:
-            raise NotImplementedError(f"Unsupported OS: {os_name}")
-
-    return Tool(
-        name="yt-dlp",
-        path=yt_dlp_path,
-        version=str(current) if current else None,
-        latest=str(latest),
-        download_url=url,
-        homepage="https://github.com/yt-dlp/yt-dlp",
     )
