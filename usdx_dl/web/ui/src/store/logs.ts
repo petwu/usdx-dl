@@ -5,5 +5,5 @@ export const $logBuffer = atom<string[]>([])
 
 export async function clearLog() {
   $logBuffer.set([])
-  await fetch(apiUrl("clear-log"), { method: "DELETE" })
+  await fetch(apiUrl("/log"), { method: "DELETE" })
 }

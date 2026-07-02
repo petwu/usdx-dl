@@ -17,7 +17,7 @@ onMount($songsFolder, () => {
 })
 
 async function fetchSongs() {
-  const response = await fetch(apiUrl("songs"))
+  const response = await fetch(apiUrl("/songs"))
   if (response.ok) {
     $songs.set(await response.json())
   } else {
@@ -26,7 +26,7 @@ async function fetchSongs() {
 }
 
 async function fetchSongsFolder() {
-  const response = await fetch(apiUrl("songs/directory"))
+  const response = await fetch(apiUrl("/songs/directory"))
   if (response.ok) {
     $songsFolder.set(await response.json())
   } else {
@@ -35,7 +35,7 @@ async function fetchSongsFolder() {
 }
 
 export async function openSongFolder(id?: string) {
-  fetch(apiUrl("songs/directory"), {
+  fetch(apiUrl("/songs/directory"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id }),

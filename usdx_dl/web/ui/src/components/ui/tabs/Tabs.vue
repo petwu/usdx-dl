@@ -54,7 +54,6 @@ watch(
   (newValue) => {
     checkName(newValue || "")
     if (props.history && mounted.value && !skipNextHistoryPush.value && newValue) {
-      console.log("history.pushState", newValue, nameToHash(newValue))
       history.pushState(null, "", nameToHash(newValue))
     }
   },
@@ -73,11 +72,6 @@ onMounted(() => {
     if (window.location.hash) {
       activeTab.value = hashToName(window.location.hash)
     } else {
-      console.log(
-        "history.replaceState",
-        activeTab.value,
-        nameToHash(activeTab.value || ""),
-      )
       history.replaceState(null, "", nameToHash(activeTab.value || ""))
     }
     window.addEventListener("hashchange", onHashChange)

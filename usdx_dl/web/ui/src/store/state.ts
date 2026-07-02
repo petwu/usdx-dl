@@ -13,7 +13,7 @@ onMount($state, () => {
 })
 
 async function fetchState() {
-  const response = await fetch(apiUrl("state"))
+  const response = await fetch(apiUrl("/state"))
   if (response.ok) {
     $state.set(await response.json())
   } else {
@@ -38,7 +38,7 @@ export async function addToQueue(link: string) {
     return
   }
   await queueApiRequest(
-    fetch(apiUrl("enqueue"), {
+    fetch(apiUrl("/queue/add"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source: link }),
@@ -50,8 +50,8 @@ export async function addToQueue(link: string) {
 
 export async function removeFromQueue(item: PipelineContext) {
   await queueApiRequest(
-    fetch(apiUrl("dequeue"), {
-      method: "POST",
+    fetch(apiUrl("/queue/remove"), {
+      method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     }),
@@ -64,8 +64,8 @@ export async function moveQueueItem(
   toEnd: boolean,
 ) {
   await queueApiRequest(
-    fetch(apiUrl("move"), {
-      method: "POST",
+    fetch(apiUrl("/queue/move"), {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ item, direction, toEnd }),
     }),
@@ -74,8 +74,8 @@ export async function moveQueueItem(
 
 export async function updateQueueItem(item: PipelineContext, done: () => void) {
   await queueApiRequest(
-    fetch(apiUrl("update"), {
-      method: "POST",
+    fetch(apiUrl("/queue/update"), {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     }),
@@ -85,8 +85,8 @@ export async function updateQueueItem(item: PipelineContext, done: () => void) {
 
 export async function retryQueueItem(item: PipelineContext) {
   await queueApiRequest(
-    fetch(apiUrl("retry"), {
-      method: "POST",
+    fetch(apiUrl("/queue/retry"), {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     }),

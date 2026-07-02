@@ -255,8 +255,8 @@ def fs_watch(
 router = APIRouter()
 
 
-@router.delete("/api/clear-log")
-async def api_clear_log():
+@router.delete("/api/log")
+async def delete_log():
     """Clear the server log."""
     if manager:
         manager.log_buffer.clear()

@@ -22,7 +22,7 @@ const inputDisabled = ref<boolean>(false)
 const downloadingTools = ref<boolean>(false)
 
 async function fetchTools() {
-  const response = await fetch(apiUrl("tools"))
+  const response = await fetch(apiUrl("/tools"))
   if (response.ok) {
     tools.value = await response.json()
   } else {
@@ -33,7 +33,7 @@ async function fetchTools() {
 async function autoDownloadTools() {
   downloadingTools.value = true
   inputDisabled.value = true
-  const response = await fetch(apiUrl("tools/download"), { method: "POST" })
+  const response = await fetch(apiUrl("/tools/download"), { method: "POST" })
   if (response.ok) {
     await fetchTools()
   } else {

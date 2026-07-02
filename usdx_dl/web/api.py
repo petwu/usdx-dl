@@ -94,31 +94,30 @@ async def post_settings(settings: state.Settings):
     cfg.save()
 
 
-class PauseRequest(BaseModel):
-    """Request type for the /pause endpoint."""
-
-    value: bool
-
-    model_config = models.config
-
-
-@router.post("/pause")
-async def post_pause(req: PauseRequest) -> None:
+@router.post("/worker/pause")
+async def post_worker_pause() -> None:
     """Pause the processing queue."""
-    state.settings.pause_processing = req.value
+    state.settings.pause_processing = True
+    state.settings.save()
+
+
+@router.post("/worker/resume")
+async def post_worker_resume() -> None:
+    """Resume the processing queue."""
+    state.settings.pause_processing = False
     state.settings.save()
 
 
 class EnqueueRequest(BaseModel):
-    """Request type for the /enqueue endpoint."""
+    """Request type for the /queue/add endpoint."""
 
     source: str
 
     model_config = models.config
 
 
-@router.post("/enqueue")
-async def post_enqueue(req: EnqueueRequest) -> models.PipelineContext:
+@router.post("/queue/add")
+async def post_queue_add(req: EnqueueRequest) -> models.PipelineContext:
     """Prepare a download request and add it to the queue."""
     ctx = models.PipelineContext(
         uuid=cli.download.ctx_uuid(),
@@ -144,8 +143,8 @@ async def post_enqueue(req: EnqueueRequest) -> models.PipelineContext:
     return ctx
 
 
-@router.post("/dequeue")
-async def post_dequeue(ctx: models.PipelineContext):
+@router.delete("/queue/remove")
+async def delete_queue_remove(ctx: models.PipelineContext):
     """Remove a queued item from the queue."""
     idx = find_ctx(ctx, state.processing_state.queue)
     del state.processing_state.queue[idx]
@@ -153,7 +152,7 @@ async def post_dequeue(ctx: models.PipelineContext):
 
 
 class MoveRequest(BaseModel):
-    """Request type for the /move endpoint."""
+    """Request type for the /queue/move endpoint."""
 
     item: models.PipelineContext
     direction: str
@@ -162,8 +161,8 @@ class MoveRequest(BaseModel):
     model_config = models.config
 
 
-@router.post("/move")
-async def post_move(req: MoveRequest):
+@router.patch("/queue/move")
+async def patch_queue_move(req: MoveRequest):
     """Move a queued item up or down in the queue."""
     idx = find_ctx(req.item, state.processing_state.queue)
     if req.direction == "up":
@@ -179,8 +178,8 @@ async def post_move(req: MoveRequest):
     state.processing_state.save()
 
 
-@router.post("/update")
-async def post_update(ctx: models.PipelineContext):
+@router.patch("/queue/update")
+async def patch_queue_update(ctx: models.PipelineContext):
     """Update the metadata of a queued item."""
     ctx.meta = cli.download.update_metadata(ctx)
     idx = find_ctx(ctx, state.processing_state.queue)
@@ -188,8 +187,8 @@ async def post_update(ctx: models.PipelineContext):
     state.processing_state.save()
 
 
-@router.post("/retry")
-async def post_retry(ctx: models.PipelineContext):
+@router.patch("/queue/retry")
+async def patch_queue_retry(ctx: models.PipelineContext):
     """Retry a failed queued item."""
     idx = find_ctx(ctx, state.processing_state.queue)
     state.processing_state.queue[idx].errors = None

@@ -11,6 +11,7 @@ function getHost(): URL {
 
 export function apiUrl(route: string): string {
   const host = getHost()
+  route = route.replace(/^\/+/, "") // remove leading slashes
   return new URL(`api/${route}`, host).toString()
 }
 

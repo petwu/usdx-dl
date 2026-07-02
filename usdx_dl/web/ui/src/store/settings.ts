@@ -28,7 +28,7 @@ let updatingSettings = false
 
 async function fetchSettings() {
   updatingSettings = true
-  const response = await fetch(apiUrl("settings"))
+  const response = await fetch(apiUrl("/settings"))
   if (response.ok) {
     $settings.set(await response.json())
   } else {
@@ -44,7 +44,7 @@ async function updateSettings(pinChanged: boolean) {
     return
   }
   updatingSettings = true
-  const response = await fetch(apiUrl("settings"), {
+  const response = await fetch(apiUrl("/settings"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...settings, pin: pin.value }),
@@ -68,10 +68,8 @@ async function updateSettings(pinChanged: boolean) {
 export async function togglePauseProcessing() {
   updatingSettings = true
   const { pauseProcessing } = $settings.get()
-  await fetch(apiUrl("pause"), {
+  await fetch(apiUrl(pauseProcessing ? "/worker/resume" : "/worker/pause"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ value: !pauseProcessing }),
   })
   await fetchSettings()
   updatingSettings = false
