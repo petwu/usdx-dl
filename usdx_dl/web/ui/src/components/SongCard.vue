@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { getAssetUrl } from "@/lib/host"
 import { cn } from "@/lib/utils"
+import { openSongFolder } from "@/store/songs"
 import type { SongMetadata } from "@/types/api"
 import { Folder, Pause, Play } from "@lucide/vue"
 import { ref, useTemplateRef, watch, type HTMLAttributes } from "vue"
@@ -12,7 +13,7 @@ import { ref, useTemplateRef, watch, type HTMLAttributes } from "vue"
 const props = withDefaults(
   defineProps<{
     as?: string
-    song: SongMetadata & { id: string }
+    song: SongMetadata
     disabled?: boolean
     class?: HTMLAttributes["class"]
   }>(),
@@ -63,10 +64,6 @@ function seek(event: MouseEvent) {
   const newProgress = clickX / rect.width
   audio.value.currentTime = newProgress * audio.value.duration
 }
-
-const emit = defineEmits<{
-  (e: "open-folder", id: string): void
-}>()
 </script>
 
 <template>
@@ -129,7 +126,7 @@ const emit = defineEmits<{
           :disabled="props.disabled"
           class="rounded-none rounded-bl-lg text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
           title="open song folder in file explorer"
-          @click="emit('open-folder', meta.id)"
+          @click="openSongFolder(meta.id)"
         >
           <Folder />
         </Button>

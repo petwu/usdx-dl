@@ -1,0 +1,5 @@
+export { default as TabInstructions } from "./TabInstructions.vue"
+export { default as TabLogs } from "./TabLogs.vue"
+export { default as TabQueue } from "./TabQueue.vue"
+export { default as TabSettings } from "./TabSettings.vue"
+export { default as TabSongs } from "./TabSongs.vue"
