@@ -2,6 +2,10 @@
 set -eu
 
 
+ui_dir=usdx_dl/web/ui
+dist_dir=usdx_dl/web/dist
+
+
 # ANSI codes
 ansi_reset="\033[0m"
 ansi_bold="\033[1m"
@@ -15,13 +19,18 @@ ansi_cyan="\033[36m"
 
 # helper functions
 pnpm() {
-  pushd usdx_dl/web/ui >/dev/null
+  pushd "$ui_dir" >/dev/null
   command pnpm "$@"
   popd >/dev/null
 }
 
 step() {
   echo -e "${ansi_bold}${ansi_magenta}[pre-commit] $1${ansi_reset}"
+}
+
+fatal() {
+  echo -e "${ansi_bold}${ansi_red}[pre-commit] ERROR: $1${ansi_reset}"
+  exit 1
 }
 
 
@@ -58,7 +67,18 @@ pnpm run lint
 
 # build
 step "Building UI"
+mkdir -p "$dist_dir"
+dist_hash_before=$(find "$dist_dir" -type f | sort | xargs sha256sum)
 pnpm run build
+dist_hash_after=$(find "$dist_dir" -type f | sort | xargs sha256sum)
+if [ "$dist_hash_before" != "$dist_hash_after" ]; then
+  echo ">>>>>>>"
+  echo "$dist_hash_before"
+  echo "======="
+  echo "$dist_hash_after"
+  echo "<<<<<<<"
+  fatal "UI build artifacts have changed. Please commit the updated files."
+fi
 
 
 # test
