@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Logo from "#/logo.svg"
 import ScrollContainer from "@/components/ScrollContainer.vue"
-import SongsFolder from "@/components/SongsFolder.vue"
+import { SongsFolder } from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import { TabLink } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"

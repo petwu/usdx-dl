@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import ScrollContainer from "@/components/ScrollContainer.vue"
-import SongCard from "@/components/SongCard.vue"
+import { SongCard } from "@/components/parts"
 import Input from "@/components/ui/input/Input.vue"
 import { $songs } from "@/store/songs"
 import { useStore } from "@nanostores/vue"

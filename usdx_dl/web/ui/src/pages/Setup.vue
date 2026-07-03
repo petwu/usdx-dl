@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import Logo from "#/logo.svg"
-import DownloadTools from "@/components/DownloadTools.vue"
 import ScrollContainer from "@/components/ScrollContainer.vue"
-import SongsFolder from "@/components/SongsFolder.vue"
+import { DownloadTools, SongsFolder, UsdbCookie } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { TabLink, Tabs } from "@/components/ui/tabs"
-import UsdbCookie from "@/components/UsdbCookie.vue"
 import { cn } from "@/lib/utils"
 import { $settings, $setup, setupComplete } from "@/store/settings"
 import {

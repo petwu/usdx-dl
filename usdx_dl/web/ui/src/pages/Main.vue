@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Logo from "#/logo.svg"
+import { ThemeSwitcher } from "@/components/settings"
 import {
   TabInstructions,
   TabLogs,
@@ -7,7 +8,6 @@ import {
   TabSettings,
   TabSongs,
 } from "@/components/tabs"
-import ThemeSwitcher from "@/components/ThemeSwitcher.vue"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TabContent, TabList, Tabs, TabTrigger } from "@/components/ui/tabs"

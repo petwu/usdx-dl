@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import MusicBars from "@/components/MusicBars.vue"
+import { MusicBars } from "@/components/parts"
 import { useCurrentSong } from "@/components/store"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import QueueItem from "@/components/QueueItem.vue"
+import { QueueItem } from "@/components/parts"
 import ScrollContainer from "@/components/ScrollContainer.vue"
 import TabLink from "@/components/ui/tabs/TabLink.vue"
 import { $activeTab } from "@/store/nav"
