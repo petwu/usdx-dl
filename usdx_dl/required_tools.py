@@ -39,9 +39,11 @@ def missing() -> list[Tool]:
     return [tool for tool in query() if tool.version is None]
 
 
-def download() -> None:
+def download(name: str | None = None) -> None:
     """Download missing tool binaries."""
     for tool in query():
+        if name is not None and tool.name != name:
+            continue
         if tool.path.exists() and tool.version and tool.version >= tool.latest:
             continue
         print(f"{ansi.BOLD}Downloading {tool.name}{ansi.RESET}")

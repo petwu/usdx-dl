@@ -134,6 +134,7 @@ import {
           various options for the tool, e.g. which AI models to use for individual
           tasks.
         </p>
+        <h3>Songs Folder</h3>
         <SongsFolder />
       </div>
     </ScrollContainer>

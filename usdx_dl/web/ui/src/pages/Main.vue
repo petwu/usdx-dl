@@ -14,7 +14,7 @@ import { TabContent, TabList, Tabs, TabTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { $errors } from "@/store/errors"
 import { $activeTab } from "@/store/nav"
-import { $settings, togglePauseProcessing } from "@/store/settings"
+import { $serverCfg, $settings, togglePauseProcessing } from "@/store/settings"
 import { $state, addToQueue } from "@/store/state"
 import { $ws, connectWebSocket } from "@/store/websocket"
 import {
@@ -30,23 +30,20 @@ import {
 import { useStore, useVModel } from "@nanostores/vue"
 import { ref, type Ref } from "vue"
 
-// global state
 const errors = useStore($errors)
 const settings = useStore($settings)
+const serverCfg = useStore($serverCfg)
 const state = useStore($state)
 const activeTab = useVModel($activeTab) as Ref<string>
-
-// backend state
 const ws = useStore($ws)
 
 // UI state
-const inputDisabled = ref<boolean>(false)
 const link = ref<string>("")
 </script>
 
 <template>
   <header
-    v-if="settings && !settings.isWebview"
+    v-if="settings && !serverCfg.isWebview"
     class="flex items-center justify-between gap-2 p-2 pb-0"
   >
     <img :src="Logo" alt="" class="size-9" />
@@ -58,12 +55,11 @@ const link = ref<string>("")
       <Input
         v-model="link"
         placeholder="https://usdb.animux.de/?link=detail&id=3715"
-        :disabled="inputDisabled"
         @keyup.enter="addToQueue(link)"
       />
       <Button
         size="icon"
-        :disabled="!link || inputDisabled"
+        :disabled="!link"
         title="add to queue"
         @click="addToQueue(link)"
       >
@@ -80,7 +76,7 @@ const link = ref<string>("")
         <TriangleAlert :size="16" :stroke-width="2.5" />
         <span>{{ errors.length === 1 ? "Error" : `${errors.length} Errors` }}</span>
         <span class="grow"></span>
-        <button @click="errors = []"><X :size="16" /></button>
+        <button @click="$errors.set([])"><X :size="16" /></button>
       </p>
       <p v-if="errors.length === 1" class="p-2 text-sm">{{ errors[0] }}</p>
       <ol v-else class="max-h-32 list-inside list-decimal overflow-y-auto p-2 text-sm">
@@ -110,14 +106,14 @@ const link = ref<string>("")
         <Button
           v-if="settings"
           size="icon"
-          :variant="settings?.pauseProcessing ? 'warning' : 'outline'"
+          :variant="serverCfg.pauseProcessing ? 'warning' : 'outline'"
           title="pause/resume processing"
           @click="togglePauseProcessing()"
           :class="
-            cn('size-9', settings?.pauseProcessing ? '' : 'bg-muted border-muted')
+            cn('size-9', serverCfg.pauseProcessing ? '' : 'bg-muted border-muted')
           "
         >
-          <Play v-if="settings?.pauseProcessing" />
+          <Play v-if="serverCfg.pauseProcessing" />
           <Pause v-else />
         </Button>
         <div class="min-w-0 shrink grow overflow-x-auto whitespace-nowrap">
@@ -133,7 +129,7 @@ const link = ref<string>("")
           </TabList>
         </div>
       </div>
-      <template v-if="settings?.pauseProcessing">
+      <template v-if="serverCfg.pauseProcessing">
         <div
           class="bg-warning/10 text-warning border-warning relative flex items-start gap-2 rounded border p-2 text-sm"
         >

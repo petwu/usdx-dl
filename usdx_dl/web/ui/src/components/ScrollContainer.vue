@@ -20,11 +20,16 @@ const props = withDefaults(
     /** Whether to automatically scroll to the end of the content.
      * Can be restricted to only one axis even if the direction is "both". */
     autoScroll?: boolean | Direction
+    /** Padding to apply to the opposite axis of the scroll direction, to prevent e.g.
+     * ring-* from being cut off. */
+    gutter?: `${number}px` | `${number}rem` | `${number}em` | `${number}%`
+    /** Additional classes to apply to the scroll container. */
     class?: HTMLAttributes["class"]
   }>(),
   {
     direction: "y",
     autoScroll: false,
+    gutter: "4px",
   },
 )
 
@@ -111,11 +116,27 @@ watch(
 const overflowStyle = computed(() => {
   switch (props.direction) {
     case "x":
-      return { overflowX: "auto", overflowY: "hidden" } as const
+      return {
+        overflowX: "auto",
+        overflowY: "hidden",
+        // overflow quirk: if one axis is auto/scroll/hidden, the other axis cannot be visible
+        // give the container some room for e.g. ring-* and compensate with negative margin
+        paddingBlock: props.gutter,
+        marginBlock: `-${props.gutter}`,
+      } as const
     case "y":
-      return { overflowX: "hidden", overflowY: "auto" } as const
+      return {
+        overflowX: "hidden",
+        overflowY: "auto",
+        paddingInline: props.gutter,
+        marginInline: `-${props.gutter}`,
+      } as const
     default:
-      return { overflow: "auto" } as const
+      return {
+        overflow: "auto",
+        padding: props.gutter,
+        margin: `-${props.gutter}`,
+      } as const
   }
 })
 </script>

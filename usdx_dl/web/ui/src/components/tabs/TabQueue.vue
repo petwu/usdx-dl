@@ -59,3 +59,25 @@ const state = useStore($state) as Ref<ServerState>
     </TransitionGroup>
   </ScrollContainer>
 </template>
+
+<style scoped>
+/**
+ * <TransitionGroup> transitions
+ * https://vuejs.org/guide/built-ins/transition-group
+ */
+.queue-move,
+.queue-enter-active,
+.queue-leave-active {
+  position: relative;
+  transition: all 0.25s ease;
+}
+.queue-leave-active {
+  position: absolute;
+  width: 100%;
+}
+.queue-enter-from,
+.queue-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+</style>

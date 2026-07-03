@@ -30,7 +30,7 @@ const wrapLog = sref<boolean>("switch:wrap-log", false)
         <WrapText v-else :size="16" />
       </button>
     </div>
-    <ScrollContainer direction="xy" autoScroll="y" class="h-full">
+    <ScrollContainer direction="xy" autoScroll="y" class="h-full" gutter="0px">
       <div
         :class="
           cn([

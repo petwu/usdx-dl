@@ -11,8 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from usdx_dl import ansi, models
-from usdx_dl.interactive import CliPrompt
-from usdx_dl.web import api, state, worker, ws
+from usdx_dl.web import api, assets, state, worker, ws
 from usdx_dl.web.state import ServerConfig
 
 __all__ = ["init_server", "ServerConfig"]
@@ -22,6 +21,7 @@ __all__ = ["init_server", "ServerConfig"]
 async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
     """Start the worker thread when the app starts, and stop it when the app stops."""
     loop = asyncio.get_event_loop()
+    cfg = models.Config.load()
     with ws.capture_output(
         loop,
         log_path=state.server_cfg.log_path,
@@ -38,13 +38,11 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
             )
 
         # set up file system watchers that push updates to the web UI when files change
-        # fmt: off
         fs_observers = [
             ws.fs_watch(loop, "state", state.server_cfg.state_path, api.get_state),
-            ws.fs_watch(loop, "settings", state.server_cfg.settings_path, api.get_settings),
-            ws.fs_watch(loop, "songs", state.server_cfg.output_dir, api.get_songs),
+            ws.fs_watch(loop, "settings", cfg.path(), api.get_settings),
+            ws.fs_watch(loop, "songs", cfg.output_dir, api.get_songs),
         ]
-        # fmt: on
 
         yield
 
@@ -58,29 +56,13 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
 
 def init_server(**kwargs) -> tuple[ServerConfig, FastAPI]:
     """Args: See :func:`..cli.args.parse`."""
-    # initialize the server config, settings and state
+    # initialize the server config and state
     is_webview = kwargs.pop("webview", False)
     if is_webview:
         kwargs["no_browser"] = True
-    state.server_cfg = ServerConfig(**kwargs)
-    state.server_cfg.output_dir.mkdir(parents=True, exist_ok=True)
+    state.server_cfg = ServerConfig(**kwargs, is_webview=is_webview)
     state.server_cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     state.server_cfg.log_path.write_text("", encoding="utf-8")
-    if state.server_cfg.settings_path.exists():
-        state.settings = state.Settings.load()
-    else:
-        state.settings = state.Settings()
-    state.settings.is_webview = is_webview
-    if not state.server_cfg.unlocked_settings and state.settings.pin is None:
-        hint = CliPrompt.string(
-            "Set a numeric PIN for the settings page (leave blank to disable)",
-        ).strip()
-        if hint != "" and not hint.isdigit():
-            raise ValueError("PIN must be numeric.")
-        state.settings.pin = hint
-    cfg = models.Config.load()
-    state.settings.usdb_cookie = cfg.usdb_cookie or state.settings.usdb_cookie
-    state.settings.save()
     state.processing_state = state.ServerState.load()
     state.processing_state.save()
 
@@ -88,29 +70,30 @@ def init_server(**kwargs) -> tuple[ServerConfig, FastAPI]:
     app = FastAPI(lifespan=lifespan)
     app.include_router(api.router)
     app.include_router(ws.router)
+    app.include_router(assets.router)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.mount("/songs", StaticFiles(directory=state.server_cfg.output_dir))
     if state.server_cfg.ui_build_dir.exists():
         app.mount("/", StaticFiles(directory=state.server_cfg.ui_build_dir, html=True))
 
     return state.server_cfg, app
 
 
-def print_server_info(cfg: ServerConfig) -> None:
+def print_server_info(server_cfg: ServerConfig) -> None:
     """Print server startup messages to the console."""
-    print(f"Web UI running at: {ansi.CYAN}{cfg.url}{ansi.RESET}")
-    if cfg.host == "0.0.0.0":
+    cfg = models.Config.load()
+    print(f"Web UI running at: {ansi.CYAN}{server_cfg.url}{ansi.RESET}")
+    if server_cfg.host == "0.0.0.0":
         hostname = socket.gethostname()
         ip = socket.gethostbyname(hostname)
-        lan_url = f"http://{ip}:{cfg.port}/"
+        lan_url = f"http://{ip}:{server_cfg.port}/"
         print(f"LAN-accessible at: {ansi.CYAN}{lan_url}{ansi.RESET}")
-    if not cfg.unlocked_settings and state.settings.pin:
-        hint = "*" * len(state.settings.pin)
+    if not server_cfg.unlocked_settings and cfg.pin:
+        hint = "*" * len(cfg.pin)
         print(f"{ansi.DIM}Settings page is protected by a PIN ({hint}).{ansi.RESET}")
 
 

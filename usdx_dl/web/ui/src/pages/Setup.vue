@@ -1,104 +1,272 @@
 <script setup lang="ts">
-import Button from "@/components/ui/button/Button.vue"
-import { apiUrl } from "@/lib/host"
+import Logo from "#/logo.svg"
+import DownloadTools from "@/components/DownloadTools.vue"
+import ScrollContainer from "@/components/ScrollContainer.vue"
+import SongsFolder from "@/components/SongsFolder.vue"
+import { Button } from "@/components/ui/button"
+import { TabLink, Tabs } from "@/components/ui/tabs"
+import UsdbCookie from "@/components/UsdbCookie.vue"
 import { cn } from "@/lib/utils"
-import { addError } from "@/store/errors"
-import type { Tool } from "@/types/api"
+import { $settings, $setup, setupComplete } from "@/store/settings"
 import {
-  AlertTriangle,
-  Download,
-  File,
-  FileTerminal,
-  Globe2,
-  LoaderCircle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Cookie,
+  Folder,
+  Music,
+  Wrench,
 } from "@lucide/vue"
-import { ref } from "vue"
+import { useStore, useVModel } from "@nanostores/vue"
+import { computed, onMounted, onUnmounted, ref } from "vue"
 
-// backend state
-const tools = ref<Tool[]>([])
+const setup = useStore($setup)
+const { usdbCookieModel } = useVModel($settings, ["usdbCookie"])
+const numSteps = 5
+const currentStep = ref<number>(0)
+const stepDirection = ref<"forward" | "backward">("forward")
 
-// UI state
-const inputDisabled = ref<boolean>(false)
-const downloadingTools = ref<boolean>(false)
+const canContinue = computed(() => {
+  switch (currentStep.value) {
+    case 0: // welcome
+      return true
+    case 1: // songs folder
+      return setup.value.songsFolder
+    case 2: // usdb cookie
+      return setup.value.usdbCookie
+    case 3: // download tools
+      return setup.value.downloadTools
+    case 4: // done
+      return true
+    default:
+      return false
+  }
+})
 
-async function fetchTools() {
-  const response = await fetch(apiUrl("/tools"))
-  if (response.ok) {
-    tools.value = await response.json()
-  } else {
-    await addError("Failed to fetch tools", response)
+function nextStep() {
+  stepDirection.value = "forward"
+  currentStep.value = Math.min(currentStep.value + 1, numSteps - 1)
+}
+
+function prevStep() {
+  stepDirection.value = "backward"
+  currentStep.value = Math.max(currentStep.value - 1, 0)
+}
+
+function jumpToStep(step: number) {
+  stepDirection.value = step > currentStep.value ? "forward" : "backward"
+  currentStep.value = Math.max(0, Math.min(step, numSteps - 1))
+}
+
+function kbdHandler(event: KeyboardEvent) {
+  switch (event.key) {
+    case "ArrowRight":
+    case "Enter":
+      if (canContinue.value) {
+        if (currentStep.value < numSteps - 1) {
+          nextStep()
+        } else {
+          setupComplete()
+        }
+      }
+      break
+    case "ArrowLeft":
+    case "Escape":
+      prevStep()
+      break
   }
 }
 
-async function autoDownloadTools() {
-  downloadingTools.value = true
-  inputDisabled.value = true
-  const response = await fetch(apiUrl("/tools/download"), { method: "POST" })
-  if (response.ok) {
-    await fetchTools()
-  } else {
-    await addError("Failed to auto-download tools", response)
-  }
-  inputDisabled.value = false
-  downloadingTools.value = false
-}
+onMounted(() => {
+  window.addEventListener("keydown", kbdHandler)
+})
+onUnmounted(() => {
+  window.removeEventListener("keydown", kbdHandler)
+})
 </script>
 
 <template>
-  <main class="bg-destructive/10 flex h-dvh w-dvw items-center justify-center p-4">
-    <div
-      class="prose border-destructive bg-background flex h-fit max-h-full flex-col rounded border p-4"
-    >
-      <h2 class="text-destructive">
-        <AlertTriangle class="-mt-1 mr-1 inline-block" />
-        Missing Required Tools
-      </h2>
-      <div class="min-h-16 shrink grow overflow-y-auto">
-        <p>
-          The following required tools are missing. Please install them to continue. You
-          can find installation instructions for each tool at the provided URL.
-        </p>
-        <p>
-          If you have already installed the required tools, please make sure they are
-          available in your system's <code>PATH</code> and restart the application.
-        </p>
-        <div v-for="tool in tools" class="my-8 flex gap-2">
-          <div>
-            <FileTerminal
-              :class="cn('size-4', tool.version ? 'text-success' : 'text-destructive')"
-            />
-          </div>
-          <div>
-            <div class="leading-none">
-              <strong :class="cn(tool.version ? 'text-success' : 'text-destructive')">
-                {{ tool.name }}
-              </strong>
-              <span v-if="tool.version"> &nbsp; @{{ tool.version }}</span>
-              <span v-else> &nbsp; (missing)</span>
-            </div>
-            <div class="*:text-muted-foreground mt-2 flex flex-col gap-2 text-sm">
-              <a :href="tool.homepage" target="_blank" rel="noopener noreferrer">
-                <Globe2 class="-mt-1 inline size-4" /> Homepage
-              </a>
-              <a :href="tool.downloadUrl" target="_blank" rel="noopener noreferrer">
-                <Download class="-mt-1 inline size-4" /> Download (v{{ tool.latest }})
-              </a>
-              <span v-if="tool.version">
-                <File class="-mt-1 inline size-4" /> {{ tool.path }}
-              </span>
-            </div>
-          </div>
+  <header class="container flex items-center justify-center gap-4 p-4">
+    <img :src="Logo" alt="" class="size-16" />
+    <h1 class="text-xl font-bold">
+      <span class="text-primary">usdx-dl</span><br />
+      Setup Wizard
+    </h1>
+  </header>
+
+  <main class="container flex min-h-0 grow flex-col gap-2 px-4">
+    <nav>
+      <div
+        class="relative mx-auto my-4 flex h-8 w-full shrink-0 items-center justify-between"
+      >
+        <div
+          class="absolute top-1/2 -z-10 h-1 w-full -translate-y-1/2 bg-gray-300/50"
+        ></div>
+        <div
+          class="bg-primary absolute top-1/2 -z-10 h-1 -translate-y-1/2 transition-all duration-300 ease-in-out"
+          :style="{ width: `${Math.min(currentStep / (numSteps - 1), 1) * 100}%` }"
+        ></div>
+        <div
+          v-for="(_, i) in numSteps"
+          :key="i"
+          :class="
+            cn(
+              'size-8 cursor-pointer rounded-full shadow',
+              'flex items-center justify-center',
+              'transition-all duration-300 ease-in-out',
+              '[&_svg]:size-4 [&_svg]:opacity-50 [&_svg]:transition-all [&_svg]:duration-300 [&_svg]:ease-in-out',
+              currentStep >= i && '[&_svg]:opacity-100',
+              currentStep >= i
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-gray-300 text-gray-600',
+              currentStep === i && 'scale-125',
+            )
+          "
+          @click="jumpToStep(i)"
+        >
+          <Music v-if="i === 0" />
+          <Folder v-else-if="i === 1" />
+          <Cookie v-else-if="i === 2" />
+          <Wrench v-else-if="i === 3" />
+          <Check v-else-if="i === 4" />
         </div>
       </div>
-      <Button
-        class="mt-8 w-full"
-        :disabled="downloadingTools"
-        @click="autoDownloadTools"
+    </nav>
+
+    <TransitionGroup
+      tag="div"
+      name="setup"
+      :class="
+        cn(
+          'prose relative block min-h-0 max-w-none shrink grow',
+          `setup-${stepDirection}`,
+        )
+      "
+    >
+      <!-- step: welcome -->
+      <ScrollContainer
+        key="step-welcome"
+        v-show="currentStep === 0"
+        class="max-h-full *:first:mt-0 *:last:mb-0"
       >
-        <Download v-if="!downloadingTools" />
-        <LoaderCircle v-else class="animate-spin" />
-        &nbsp; Auto-download all tools
-      </Button>
-    </div>
+        <h2>Welcome to the <span class="text-primary">usdx-dl</span> Setup</h2>
+        <p>
+          This setup wizard will guide you through the initial configuration of
+          <code>usdx-dl</code>. Please follow the steps to ensure everything is set up
+          correctly.
+        </p>
+      </ScrollContainer>
+      <!-- step: songs folder -->
+      <ScrollContainer
+        key="step-songs-folder"
+        v-show="currentStep === 1"
+        class="max-h-full *:first:mt-0 *:last:mb-0"
+      >
+        <h2>Songs Folder</h2>
+        <p>Please select the folder where you want to save your downloaded files.</p>
+        <p>Currently, songs are saved in:</p>
+        <SongsFolder editable />
+      </ScrollContainer>
+      <!-- step: usdb cookie -->
+      <ScrollContainer
+        key="step-usdb-cookie"
+        v-show="currentStep === 2"
+        class="max-h-full *:first:mt-0 *:last:mb-0"
+      >
+        <h2>USDB Cookie</h2>
+        <UsdbCookie v-model="usdbCookieModel" />
+      </ScrollContainer>
+      <!-- step: download tools -->
+      <ScrollContainer
+        key="step-download-tools"
+        v-show="currentStep === 3"
+        class="max-h-full *:first:mt-0 *:last:mb-0"
+      >
+        <h2>Download Tools</h2>
+        <DownloadTools />
+      </ScrollContainer>
+      <!-- step: done -->
+      <ScrollContainer
+        key="step-done"
+        v-show="currentStep === 4"
+        class="max-h-full *:first:mt-0 *:last:mb-0"
+      >
+        <h2>Setup Complete</h2>
+        <p>🎉 Congratulations!</p>
+        <p>
+          You have successfully completed the setup of <code>usdx-dl</code>. You can now
+          start using the application to download your favorite songs.
+        </p>
+        <Tabs>
+          <p>
+            <strong>Note:</strong> All settings can be changed later in the
+            <TabLink id="dummy" class="*:disabled:opacity-100!" disabled
+              >Settings</TabLink
+            >
+            tab.
+          </p>
+        </Tabs>
+      </ScrollContainer>
+    </TransitionGroup>
   </main>
+
+  <footer class="container">
+    <nav class="flex items-center justify-end gap-2 p-4">
+      <Button v-if="currentStep > 0" variant="outline" @click="prevStep()">
+        <ArrowLeft />
+      </Button>
+      <Button
+        v-if="currentStep < numSteps - 1"
+        variant="default"
+        class="w-24"
+        :disabled="!canContinue"
+        @click="nextStep()"
+      >
+        <ArrowRight /> Next
+      </Button>
+      <Button
+        v-else
+        variant="success"
+        class="w-24"
+        :disabled="!canContinue"
+        @click="setupComplete()"
+      >
+        <Check /> Finish
+      </Button>
+    </nav>
+  </footer>
 </template>
+
+<style scoped>
+/**
+ * <TransitionGroup> transitions
+ * https://vuejs.org/guide/built-ins/transition-group
+ */
+.setup-enter-active,
+.setup-leave-active {
+  position: absolute;
+  top: 0;
+  transition: all 0.3s ease-in-out;
+}
+
+.setup-enter-from,
+.setup-leave-to {
+  opacity: 0;
+}
+
+/* enter from right, leave to left */
+.setup-forward .setup-enter-from {
+  transform: translateX(10%);
+}
+.setup-forward .setup-leave-to {
+  transform: translateX(-10%);
+}
+
+/* enter from left, leave to right */
+.setup-backward .setup-enter-from {
+  transform: translateX(-10%);
+}
+.setup-backward .setup-leave-to {
+  transform: translateX(10%);
+}
+</style>

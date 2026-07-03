@@ -1,11 +1,23 @@
 import { apiUrl } from "@/lib/host"
 import { addError } from "@/store/errors"
 import { $activeTab } from "@/store/nav"
-import type { Settings } from "@/types/api"
+import type { ServerConfig, Settings } from "@/types/api"
 import { persistentMap } from "@nanostores/persistent"
 import { listenKeys, map, onMount } from "nanostores"
 
+export type Setup = {
+  songsFolder: boolean
+  usdbCookie: boolean
+  downloadTools: boolean
+}
+
+export const $setup = map<Setup>({
+  songsFolder: false,
+  usdbCookie: false,
+  downloadTools: false,
+})
 export const $settings = map<Settings>()
+export const $serverCfg = map<ServerConfig>()
 export const $pin = persistentMap<{ value: string; valid: boolean | null }>(
   "settings:pin:",
   { value: "", valid: null },
@@ -20,9 +32,24 @@ onMount($settings, () => {
   return () => clearInterval(handle)
 })
 
+onMount($serverCfg, () => {
+  fetchServerConfig()
+  return () => {}
+})
+
 onMount($pin, () => {
   listenKeys($pin, ["value"], () => updateSettings(true))
 })
+
+export async function setupComplete() {
+  const response = await fetch(apiUrl("/setup/complete"), { method: "POST" })
+  if (response.ok) {
+    await fetchServerConfig() // switch page
+    await fetchSettings()
+  } else {
+    await addError("Failed to mark setup as complete", response)
+  }
+}
 
 let updatingSettings = false
 
@@ -65,12 +92,19 @@ async function updateSettings(pinChanged: boolean) {
   updatingSettings = false
 }
 
+async function fetchServerConfig() {
+  const response = await fetch(apiUrl("/server-config"))
+  if (response.ok) {
+    $serverCfg.set(await response.json())
+  } else {
+    await addError("Failed to fetch server config", response)
+  }
+}
+
 export async function togglePauseProcessing() {
-  updatingSettings = true
-  const { pauseProcessing } = $settings.get()
+  const { pauseProcessing } = $serverCfg.get()
   await fetch(apiUrl(pauseProcessing ? "/worker/resume" : "/worker/pause"), {
     method: "POST",
   })
-  await fetchSettings()
-  updatingSettings = false
+  await fetchServerConfig()
 }

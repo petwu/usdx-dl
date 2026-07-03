@@ -18,7 +18,7 @@ def snake_to_camel_case(snake_str: str) -> str:
     return components[0] + "".join(x.title() for x in components[1:])
 
 
-config = ConfigDict(
+config = ConfigDict(  # pylint: disable=invalid-name
     alias_generator=AliasGenerator(
         validation_alias=snake_to_camel_case,
         serialization_alias=snake_to_camel_case,
@@ -71,11 +71,34 @@ def from_json(
     )
 
 
-class Config(BaseModel):
+class MergeableModel(BaseModel):
+    """Base model that can be merged with another instance."""
+
+    def merge_(self, other: Self | None, *, override: bool = False) -> Self:
+        """Merge unset attributes with another instance inplace.
+        If override is True, also override set attributes."""
+        if other is None:
+            return self
+        for name, field in self.__class__.model_fields.items():
+            val_self = getattr(self, name, None)
+            val_other = getattr(other, name, None)
+            if override or (val_self == field.default and val_other != field.default):
+                setattr(self, name, val_other)
+        return self
+
+
+class Config(MergeableModel):
     """App config."""
 
+    output_dir: Path = __app__.user_music_path / "Karaoke"
+    models_dir: Path = __app__.user_data_path / "models"
+    pin: str | None = None
     usdb_cookie: str | None = None
-    download_tools: bool = False
+    stem_model: str = "demucs"
+    whisper_model: str = "turbo"
+    no_lyrics: bool = False
+    no_video: bool = False
+    initial_setup_done: bool = False
 
     model_config = config
 
@@ -99,6 +122,16 @@ class Config(BaseModel):
         return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
 
 
+class USDBSession(BaseModel):
+    """A logged-in USDB session."""
+
+    browser: str
+    username: str
+    cookie: str
+
+    model_config = config
+
+
 class Tool(BaseModel):
     """Model representing a missing required tool."""
 
@@ -112,7 +145,7 @@ class Tool(BaseModel):
     model_config = config
 
 
-class SongMetadata(BaseModel):
+class SongMetadata(MergeableModel):
     """Metadata related to a song."""
 
     artist: str
@@ -138,55 +171,44 @@ class SongMetadata(BaseModel):
     def __str__(self) -> str:
         return repr(self)
 
-    def merge_(self, other: Self | None, *, override: bool = False) -> Self:
-        """Merge unset attributes with another instance inplace.
-        If override is True, also override set attributes."""
-        if other is None:
-            return self
-        for name, field in SongMetadata.model_fields.items():
-            val_self = getattr(self, name, None)
-            val_other = getattr(other, name, None)
-            if override or (val_self == field.default and val_other != field.default):
-                setattr(self, name, val_other)
-        return self
-
 
 class SongPaths:
     """Paths to all relevant files for a song."""
 
-    def __init__(self, output_dir: Path):
-        self.output_dir = output_dir
-        self.tmp_dir = output_dir / "tmp"
+    def __init__(self, output_dir: Path | str, song_id: str) -> None:
+        base_dir = Path(output_dir) / song_id
+        self.base_dir = base_dir
+        self.tmp_dir = base_dir / "tmp"
         self.song_orig_txt = self.tmp_dir / "song.usdb"
         self.song_gen_txt = self.tmp_dir / "song.gen"
-        self.song_txt = output_dir / "song.txt"
-        self.meta = output_dir / "metadata.json"
+        self.song_txt = base_dir / "song.txt"
+        self.meta = base_dir / "metadata.json"
         self.lyrics = self.tmp_dir / "lyrics.txt"
-        self.cover = output_dir / "cover.jpg"
-        self.bg = output_dir / "background.jpg"
-        self.video = output_dir / "video.mp4"
-        self.audio = output_dir / "audio.mp3"
+        self.cover = base_dir / "cover.jpg"
+        self.bg = base_dir / "background.jpg"
+        self.video = base_dir / "video.mp4"
+        self.audio = base_dir / "audio.mp3"
         self.language = self.tmp_dir / "language.txt"
         self.transcription = self.tmp_dir / "transcription.json"
         self.pitch = self.tmp_dir / "pitch.json"
-        self.vocals = output_dir / "vocals.mp3"
+        self.vocals = base_dir / "vocals.mp3"
         self.vocals_denoised = self.tmp_dir / "vocals_denoised.mp3"
         self.vocals_muted = self.tmp_dir / "vocals_muted.mp3"
-        self.instrumental = output_dir / "instrumental.mp3"
+        self.instrumental = base_dir / "instrumental.mp3"
 
     def mkdirs(self):
         """Create all necessary directories."""
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def clean(self):
         """Remove all files in the output directory."""
-        if self.output_dir.exists():
-            shutil.rmtree(self.output_dir)
+        if self.base_dir.exists():
+            shutil.rmtree(self.base_dir)
 
     def name_path(self, artist: str, title: str) -> Path:
         """Get the path to the file that contains the song name."""
-        return self.output_dir / re.sub(
+        return self.base_dir / re.sub(
             r"[^a-zA-Z0-9 _\-.,@()\[\]]",
             "",
             f"@ {artist} - {title}",
@@ -220,17 +242,11 @@ class PipelineContext(BaseModel):
 
     uuid: str
     url_or_id: str
-    usdb_cookie: str | None = None
-    output_dir: Path
-    models_dir: Path
-    stem_model: str
-    whisper_model: str
+    song_id: str = ""
     sample_rate: int = 44100
     vocals_gain: float = 0.0
     phrase_correction: float = 1.0
     force: Force | None = None
-    no_lyrics: bool = False
-    no_video: bool = False
     non_interactive: bool = False
     lyrics: str | None = None
     meta: SongMetadata | None = None

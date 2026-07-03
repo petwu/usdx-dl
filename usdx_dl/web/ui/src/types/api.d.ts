@@ -1,3 +1,16 @@
+export type ServerConfig = {
+  setupDone: boolean
+  unlockedSettings: boolean
+  pauseProcessing: boolean
+  isWebview: boolean
+}
+
+export type USDBSession = {
+  browser: string
+  username: string
+  cookie: string
+}
+
 export type SongMetadata = {
   id: string
   title: string
@@ -18,8 +31,6 @@ export type Settings = {
   whisperModel: string
   noLyrics: boolean
   noVideo: boolean
-  pauseProcessing: boolean
-  isWebview: boolean
 }
 
 export type PipelineContext = Omit<Settings, "pauseProcessing" | "pin"> & {

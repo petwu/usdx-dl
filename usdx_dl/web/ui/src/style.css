@@ -18,6 +18,7 @@
 
 @theme {
   --radius: 0.5rem;
+  --container-width: var(--container-2xl);
   --color-background: oklch(1 0 0);
   --color-foreground: oklch(0.145 0 0);
   --color-card: oklch(1 0 0);
@@ -121,6 +122,12 @@
       transparent
     ) !important;
   }
+}
+
+@utility container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--container-width);
 }
 
 /* https://tailwindcss.com/docs/dark-mode#toggling-dark-mode-manually */

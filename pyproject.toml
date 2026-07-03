@@ -6,13 +6,16 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "audio-separator~=0.44",
+    "cryptography",
     "fastapi[standard]==0.138.0",
     "librosa",
     "num2words",
     "onnxruntime",
     "platformdirs",
     "pyhyphen",
-    "pywebview[qt,ssl]",
+    "pyside6",
+    "pywebview",
+    "qtpy",
     "swift-f0",
     "torch",
     "torchaudio",
@@ -69,5 +72,6 @@ module = [
     "soundfile.*",
     "num2words.*",
     "hyphen.*",
+    "yt_dlp.*",
 ]
 follow_untyped_imports = true

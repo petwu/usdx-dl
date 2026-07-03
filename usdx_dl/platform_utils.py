@@ -1,6 +1,6 @@
 """Platform-specific utility functions."""
 
-# pylint: disable=no-member,import-outside-toplevel,import-error,broad-exception-caught
+# pylint: disable=no-member,no-name-in-module,import-outside-toplevel,import-error,broad-exception-caught
 # mypy: disable-error-code="attr-defined"
 # pyright: reportAttributeAccessIssue=none
 # cSpell: disable
@@ -9,6 +9,7 @@ import os
 import platform
 import shutil
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 
@@ -112,3 +113,48 @@ def is_dark_mode() -> bool:
                 return False
         case _:
             return False
+
+
+def file_dialog(
+    title: str | None = None,
+    filters: Sequence[str] | None = None,
+    default: str | None = None,
+    directory: bool = False,
+) -> Path | None:
+    """Open a file or directory selection dialog.
+
+    Args:
+        title: The title of the dialog.
+        filters: The file filters to apply (e.g., ["Text files (*.txt)", "All files (*)"]).
+        default: The default path to open in the dialog.
+        directory: If True, open a directory selection dialog. Otherwise, open a file
+            selection dialog.
+
+    Returns:
+        The selected file or directory path, or None if the dialog was canceled.
+    """
+    from qtpy.QtWidgets import QApplication, QFileDialog
+
+    _ = QApplication.instance() or QApplication([])
+
+    dialog = QFileDialog()
+
+    if title:
+        dialog.setWindowTitle(title)
+
+    if filters:
+        dialog.setNameFilters(set(filters))
+
+    if default:
+        dialog.setDirectory(default)
+
+    if directory:
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
+    else:
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+
+    if dialog.exec():
+        return Path(dialog.selectedFiles()[0])
+
+    return None

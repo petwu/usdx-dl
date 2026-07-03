@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel, Field
 
-from usdx_dl import models, sys_utils
+from usdx_dl import __app__, models, sys_utils
 
 
 class ServerConfig(BaseModel):
@@ -14,12 +14,11 @@ class ServerConfig(BaseModel):
     host: str = Field(frozen=True)
     port: int = Field(frozen=True)
     log_level: str = Field(frozen=True)
-    models_dir: Path = Field(frozen=True)
-    output_dir: Path = Field(frozen=True)
-    data_dir: Path = Field(frozen=True)
     tee: bool = Field(frozen=True)
     no_browser: bool = Field(frozen=True)
     unlocked_settings: bool = Field(frozen=True)
+    is_webview: bool = Field(frozen=True)
+    pause_processing: bool = False
 
     @property
     def url(self) -> str:
@@ -36,9 +35,9 @@ class ServerConfig(BaseModel):
         )
 
     @property
-    def settings_path(self) -> Path:
-        """Path to the settings file."""
-        return self.data_dir / "settings.json"
+    def data_dir(self) -> Path:
+        """Path to the data directory."""
+        return __app__.user_data_path / "data"
 
     @property
     def log_path(self) -> Path:
@@ -51,6 +50,11 @@ class ServerConfig(BaseModel):
         return self.data_dir / "state.json"
 
     @property
+    def setup_path(self) -> Path:
+        """Path to the setup state file."""
+        return self.data_dir / "setup.json"
+
+    @property
     def ui_dir(self) -> Path:
         """Path to the user interface directory."""
         return Path(__file__).parent / "ui"
@@ -59,35 +63,6 @@ class ServerConfig(BaseModel):
     def ui_build_dir(self) -> Path:
         """Path to the built user interface directory."""
         return Path(__file__).parent / "dist"
-
-
-class Settings(BaseModel):
-    """Settings for a download request."""
-
-    pin: str | None = None
-    usdb_cookie: str | None = None
-    stem_model: str = "demucs"
-    whisper_model: str = "turbo"
-    no_lyrics: bool = False
-    no_video: bool = False
-    pause_processing: bool = False
-    is_webview: bool = False
-
-    model_config = models.config
-
-    def save(self) -> None:
-        """Save the server state to disk."""
-        path = server_cfg.settings_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.model_dump_json(indent=2, by_alias=False), "utf-8")
-
-    @classmethod
-    def load(cls) -> Self:
-        """Load the server state from disk."""
-        path = server_cfg.settings_path
-        if not path.exists():
-            return cls()
-        return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
 
 
 class ServerState(BaseModel):
@@ -111,18 +86,28 @@ class ServerState(BaseModel):
         return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
 
 
+class SetupState(BaseModel):
+    """State of the setup process."""
+
+    step: int = 0
+    usdb_cookie: str | None = None
+    usdb_username: str | None = None
+
+    model_config = models.config
+
+
 # pylint: disable=invalid-name
 
 server_cfg: ServerConfig
 """Global server configuration. Externally initialized."""
 
-settings: Settings
-"""Global server settings. Externally initialized."""
-
 processing_state: ServerState
 """Global server state. Externally initialized."""
 
+setup: SetupState
+"""Global setup state. Externally initialized."""
+
 if TYPE_CHECKING:
     server_cfg = ServerConfig  # type: ignore
-    settings = Settings  # type: ignore
     processing_state = ServerState  # type: ignore
+    setup = SetupState  # type: ignore

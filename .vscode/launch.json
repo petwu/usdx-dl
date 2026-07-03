@@ -33,6 +33,25 @@
       "args": [],
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+      "name": "current file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "current file with args",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "args": "${command:pickArgs}",
+      "console": "integratedTerminal",
+      "justMyCode": false
     }
   ]
 }

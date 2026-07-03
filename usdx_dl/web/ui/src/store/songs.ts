@@ -26,7 +26,7 @@ async function fetchSongs() {
 }
 
 async function fetchSongsFolder() {
-  const response = await fetch(apiUrl("/songs/directory"))
+  const response = await fetch(apiUrl("/songs/folder"))
   if (response.ok) {
     $songsFolder.set(await response.json())
   } else {
@@ -35,9 +35,31 @@ async function fetchSongsFolder() {
 }
 
 export async function openSongFolder(id?: string) {
-  fetch(apiUrl("/songs/directory"), {
+  fetch(apiUrl("/songs/folder"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id }),
   })
+}
+
+export async function chooseSongFolder(move: boolean) {
+  const response = await fetch(apiUrl("/songs/folder"), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ move }),
+  })
+  if (response.ok) {
+    $songsFolder.set(await response.json())
+  } else {
+    await addError("Failed to choose songs folder", response)
+  }
+}
+
+export async function checkFolder(path: string): Promise<boolean> {
+  const response = await fetch(apiUrl("/songs/folder/check"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  })
+  return response.ok
 }

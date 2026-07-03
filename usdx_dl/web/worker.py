@@ -11,12 +11,12 @@ stop_event = Event()
 def loop() -> None:
     """Worker thread that processes download requests."""
     while not stop_event.is_set():
+        output_dir = models.Config.load().output_dir
         # remove any items from the queue that have been deleted from disk
         removed_indices = [
             i
             for i, ctx in enumerate(state.processing_state.queue)
-            if not ctx.output_dir.is_dir()
-            or not models.SongPaths(ctx.output_dir).meta.is_file()
+            if not models.SongPaths(output_dir, ctx.song_id).meta.is_file()
         ]
         for i in reversed(removed_indices):
             del state.processing_state.queue[i]
@@ -30,13 +30,13 @@ def loop() -> None:
         ]
 
         # in case the server was restarted and the pause setting was changed in between
-        if state.settings.pause_processing and state.processing_state.processing:
+        if state.server_cfg.pause_processing and state.processing_state.processing:
             state.processing_state.queue.insert(0, state.processing_state.processing)
             state.processing_state.processing = None
             state.processing_state.save()
 
         # processing paused or empty queue -> wait for a second and check again
-        if state.settings.pause_processing or (
+        if state.server_cfg.pause_processing or (
             not state.processing_state.processing and len(queue_indices) == 0
         ):
             stop_event.wait(1)
@@ -50,7 +50,7 @@ def loop() -> None:
         state.processing_state.processing = ctx
         state.processing_state.save()
         try:
-            cli.download.process(ctx)
+            cli.download.process(ctx, output_dir)
         except Exception as e:  # pylint: disable=broad-except
             msg = f"Error processing {ctx.url_or_id}: {e}"
             if ctx.errors is None:

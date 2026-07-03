@@ -120,7 +120,6 @@ def run_pipeline(
     url_or_id: str,
     usdb_cookie: str | None,
     output_dir: Path,
-    models_dir: Path,
     stem_model: str,
     whisper_model: str,
     sample_rate: int,
@@ -133,50 +132,44 @@ def run_pipeline(
     prompt: interactive.Prompt,
 ) -> None:
     """Args: See :func:`.args.parse`."""
-
     ctx = PipelineContext(
         uuid=ctx_uuid(),
         url_or_id=url_or_id,
-        usdb_cookie=usdb_cookie,
-        output_dir=output_dir,
-        models_dir=models_dir,
-        stem_model=stem_model,
-        whisper_model=whisper_model,
         sample_rate=sample_rate,
         vocals_gain=vocals_gain,
         phrase_correction=phrase_correction,
         force=force,
-        no_lyrics=no_lyrics,
-        no_video=no_video,
         non_interactive=non_interactive,
     )
-    prepare(ctx, prompt)
-    process(ctx)
+    cfg_override = models.Config(
+        usdb_cookie=usdb_cookie,
+        stem_model=stem_model,
+        whisper_model=whisper_model,
+        no_lyrics=no_lyrics,
+        no_video=no_video,
+    )
+    prepare(ctx, output_dir, prompt)
+    process(ctx, output_dir, cfg_override)
 
 
-def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
+def prepare(ctx: PipelineContext, output_dir: Path, prompt: interactive.Prompt) -> None:
     """Prepare a download request by collecting necessary metadata."""
-    # detect if we start from USDB or YouTube
     cfg = models.Config.load()
+
+    # detect if we start from USDB or YouTube
     if "usdb.animux.de" in ctx.url_or_id or ctx.url_or_id.isdigit():
-        if not ctx.usdb_cookie:
-            ctx.usdb_cookie = cfg.usdb_cookie
-            if not ctx.usdb_cookie:
-                if ctx.non_interactive:
-                    raise RuntimeError(
-                        "Cannot continue without the PHPSESSID cookie from "
-                        f"{usdb.APIClient.URL}."
-                    )
-                ctx.usdb_cookie = prompt.string(
-                    f"PHPSESSID cookie from {usdb.APIClient.URL}: "
+        if not cfg.usdb_cookie:
+            if ctx.non_interactive:
+                raise RuntimeError(
+                    "Cannot continue without the PHPSESSID cookie from "
+                    f"{usdb.APIClient.URL}."
                 )
-                if len(ctx.usdb_cookie.replace("PHPSESSID=", "")) < 22:
-                    raise ValueError(
-                        "Invalid PHPSESSID, must be at least 22 characters."
-                    )
-        cfg.usdb_cookie = ctx.usdb_cookie
-        cfg.save()
-        usdb_client = usdb.APIClient(ctx.url_or_id, ctx.usdb_cookie)
+            usdb_cookie = prompt.string(f"PHPSESSID cookie from {usdb.APIClient.URL}: ")
+            if len(usdb_cookie.replace("PHPSESSID=", "")) < 22:
+                raise ValueError("Invalid PHPSESSID, must be at least 22 characters.")
+            cfg.usdb_cookie = usdb_cookie
+            cfg.save()
+        usdb_client = usdb.APIClient(ctx.url_or_id, cfg.usdb_cookie)
         yt_client = None
         song_id = str(usdb_client.id)
     elif "youtube.com" in ctx.url_or_id or re.match(r"^[\w_-]{11}$", ctx.url_or_id):
@@ -187,10 +180,10 @@ def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
         raise ValueError(f"Invalid URL or ID: {ctx.url_or_id}")
 
     # output paths
-    ctx.output_dir /= str(song_id)
-    paths = SongPaths(ctx.output_dir)
+    ctx.song_id = song_id
+    paths = SongPaths(output_dir, ctx.song_id)
     paths.mkdirs()
-    if ctx.force == Force.CLEAN and ctx.output_dir.exists():
+    if ctx.force == Force.CLEAN and paths.base_dir.exists():
         paths.clean()
 
     if usdb_client is not None:
@@ -264,7 +257,7 @@ def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
     print(song_meta)
 
     # find lyrics
-    if not paths.song_orig_txt.exists() and not ctx.no_lyrics:
+    if not paths.song_orig_txt.exists() and not cfg.no_lyrics:
         __print_step("Downloading lyrics")
         t = perf_counter()
         if should_run(paths.lyrics, ctx.force, Force.DOWNLOAD):
@@ -304,11 +297,11 @@ def prepare(ctx: PipelineContext, prompt: interactive.Prompt) -> None:
         ctx.lyrics = lyrics_sync
 
 
-def update_metadata(ctx: PipelineContext) -> SongMetadata:
+def update_metadata(ctx: PipelineContext, output_dir: Path) -> SongMetadata:
     """Update song metadata with user changes."""
     # merge user changes into metadata
-    paths = SongPaths(ctx.output_dir)
-    if not paths.meta.exists():
+    paths = SongPaths(output_dir, ctx.song_id)
+    if not ctx.song_id or not paths.meta.exists():
         raise RuntimeError("PipelineContext is not properly initialized.")
     song_meta = models.from_json(SongMetadata, paths.meta)
 
@@ -336,12 +329,22 @@ def update_metadata(ctx: PipelineContext) -> SongMetadata:
     return song_meta
 
 
-def process(ctx: PipelineContext) -> None:
+def process(
+    ctx: PipelineContext,
+    output_dir: Path,
+    cfg_override: models.Config | None = None,
+) -> None:
     """Process the song using the pipeline context. This function assumes that the
     pipeline context has been properly initialized by :func:`prepare`."""
+    cfg = models.Config.load()
+    if cfg_override:
+        cfg.merge_(cfg_override, override=True)
+
     __print_step("Starting processing pipeline")
-    print(f"Saving files to {ctx.output_dir}")
-    paths = SongPaths(ctx.output_dir)
+    if not ctx.song_id:
+        raise RuntimeError("PipelineContext is not properly initialized.")
+    paths = SongPaths(output_dir, ctx.song_id)
+    print(f"Saving files to {paths.base_dir}")
     # context values take precedence over saved values
     if ctx.meta:
         models.to_json(ctx.meta, paths.meta)
@@ -391,7 +394,7 @@ def process(ctx: PipelineContext) -> None:
 
     # download audio/video from YouTube
     t = perf_counter()
-    if ctx.no_video:
+    if cfg.no_video:
         __print_step("Downloading audio from YouTube")
     else:
         __print_step("Downloading video and audio from YouTube")
@@ -410,12 +413,11 @@ def process(ctx: PipelineContext) -> None:
         __print_cached(paths.audio)
 
     # split vocals using AI model
-    __print_step(f"Splitting vocals and instrumental parts using {ctx.stem_model}")
+    __print_step(f"Splitting vocals and instrumental parts using {cfg.stem_model}")
     t = perf_counter()
     if should_run(paths.vocals, ctx.force, Force.SPLIT_STEMS):
         separator = Separator(
             log_level=logging.INFO,
-            model_file_dir=(ctx.models_dir / "separator").as_posix(),
             output_dir=paths.tmp_dir.as_posix(),
             output_format=paths.vocals.suffix[1:],
             sample_rate=sf.info(paths.audio).samplerate,
@@ -426,7 +428,7 @@ def process(ctx: PipelineContext) -> None:
             "mel-roformer": "mel_band_roformer_karaoke_becruily.ckpt",
             # cSpell: enable
         }
-        separator.load_model(model_name_mapping[ctx.stem_model])
+        separator.load_model(model_name_mapping[cfg.stem_model])
         output_names = {
             "Vocals": "vocals",
             "Instrumental": "instrumental",
@@ -445,10 +447,10 @@ def process(ctx: PipelineContext) -> None:
         if paths.vocals.exists():
             paths.vocals.unlink()
         tmp_vocals.rename(paths.vocals)
-        if ctx.stem_model in ["demucs"]:
+        if cfg.stem_model in ["demucs"]:
             stem_names = {
                 "demucs": ["drums", "bass", "other"],
-            }[ctx.stem_model]
+            }[cfg.stem_model]
             stem_paths = [
                 paths.tmp_dir / f"{stem}.{paths.vocals.suffix[1:]}"
                 for stem in stem_names
@@ -497,13 +499,13 @@ def process(ctx: PipelineContext) -> None:
             __print_cached(paths.vocals_denoised)
 
         # transcribe audio
-        __print_step(f"Transcribing audio using whisperx ({ctx.whisper_model})")
+        __print_step(f"Transcribing audio using whisperx ({cfg.whisper_model})")
         t = perf_counter()
         if should_run(paths.transcription, ctx.force, Force.TRANSCRIBE):
             language, transcribed_data = whisper.transcribe(
                 audio_path=paths.vocals_muted,
-                lyrics_path=None if ctx.no_lyrics else paths.lyrics,
-                model_arch=ctx.whisper_model,
+                lyrics_path=None if cfg.no_lyrics else paths.lyrics,
+                model_arch=cfg.whisper_model,
             )
             if len(transcribed_data) == 0:
                 raise RuntimeError("Transcription failed.")
@@ -554,7 +556,7 @@ def process(ctx: PipelineContext) -> None:
             midi_segments, transcribed_data = syllables.merge_segments(
                 midi_segments, transcribed_data, bpm
             )
-            if not ctx.no_lyrics and paths.lyrics.exists():
+            if not cfg.no_lyrics and paths.lyrics.exists():
                 phrase_splits = [t for t, _ in lyrics.parse(paths.lyrics.read_text())]
             else:
                 phrase_splits = None
@@ -599,18 +601,16 @@ def process(ctx: PipelineContext) -> None:
     # print final result
     __print_step("Done")
     stats: list[tuple[str, str]] = []
-    for p in sorted(ctx.output_dir.glob("*")):
+    for p in sorted(paths.base_dir.glob("*")):
         if p.is_file():
             stats.append((str(p), fmt.bytes(p.stat().st_size)))
     c1 = max(len(p) for p, _ in stats) + 4
     c2 = max(len(s) for _, s in stats)
     for s1, s2 in stats:
         print(f"{s1:{c1}s}{s2:>{c2}s}")
-    output_dir_size = sum(
-        f.stat().st_size for f in ctx.output_dir.glob("**/*") if f.is_file()
-    )
+    dir_size = sum(f.stat().st_size for f in paths.base_dir.glob("**/*") if f.is_file())
     print("-" * (c1 + c2))
-    print(f"{ansi.BOLD}Total: {fmt.bytes(output_dir_size):>{c1 + c2 - 7}s}{ansi.RESET}")
+    print(f"{ansi.BOLD}Total: {fmt.bytes(dir_size):>{c1 + c2 - 7}s}{ansi.RESET}")
 
 
 def should_run(

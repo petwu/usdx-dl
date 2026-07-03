@@ -1,21 +1,22 @@
 <script lang="ts" setup>
 import ScrollContainer from "@/components/ScrollContainer.vue"
 import SongsFolder from "@/components/SongsFolder.vue"
+import ThemeSwitcher from "@/components/ThemeSwitcher.vue"
 import Button from "@/components/ui/button/Button.vue"
 import Input from "@/components/ui/input/Input.vue"
 import Label from "@/components/ui/label/Label.vue"
 import RadioGroup from "@/components/ui/radio-group/RadioGroup.vue"
 import RadioGroupItem from "@/components/ui/radio-group/RadioGroupItem.vue"
 import Switch from "@/components/ui/switch/Switch.vue"
-import { $pin, $settings } from "@/store/settings"
-import { $tools } from "@/store/tools"
+import UsdbCookie from "@/components/UsdbCookie.vue"
+import { $pin, $serverCfg, $settings } from "@/store/settings"
 import { AlertTriangle, Check, Info, KeyRound, LoaderCircle } from "@lucide/vue"
 import { useStore, useVModel } from "@nanostores/vue"
 import { computed, ref } from "vue"
 
 const settings = useStore($settings)
+const serverCfg = useStore($serverCfg)
 const pin = useStore($pin)
-const tools = useStore($tools)
 const haveSettings = computed(
   () => settings.value !== null && JSON.stringify(settings.value) !== "{}",
 )
@@ -109,40 +110,7 @@ function updatePin() {
         </template>
         <template v-if="haveSettings">
           <h3>Download Options</h3>
-          <div class="mt-4 grid grid-cols-[auto_1fr] items-center gap-2">
-            <Label for="input:settings:usdb-cookie">USDB Cookie</Label>
-            <Input
-              v-model="usdbCookieModel"
-              id="input:settings:usdb-cookie"
-              :disabled="locked"
-              placeholder="PHPSESSID=..."
-            />
-            <details class="col-span-2 -mt-2 text-sm" :open="false">
-              <summary class="cursor-pointer">How to get the PHPSESSID cookie?</summary>
-              <ol>
-                <li>
-                  Go to
-                  <a
-                    href="https://usdb.animux.de"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    https://usdb.animux.de </a
-                  >.
-                </li>
-                <li>Login to your account.</li>
-                <li>Open the browser's developer tools (F12).</li>
-                <li>
-                  Run the following command in the console:
-                  <pre
-                    class="bg-muted my-0! mt-1 rounded p-2 text-sm whitespace-pre-wrap"
-                  >
-(await cookieStore.get("PHPSESSID")).value</pre>
-                </li>
-                <li>Copy the value and paste it into the above field.</li>
-              </ol>
-            </details>
-          </div>
+          <UsdbCookie v-model="usdbCookieModel" :disabled="locked" collapsed />
           <div class="mt-4 grid grid-cols-[auto_1fr] items-center gap-2">
             <Switch
               v-model="noVideoModel"
@@ -285,19 +253,14 @@ function updatePin() {
             Loading settings ...
           </p>
         </div>
-        <template v-if="tools?.length > 0">
-          <hr />
-          <h3>Tools</h3>
-          <ul>
-            <li v-for="tool in tools" class="leading-5 not-first:mt-2">
-              {{ tool.name }}
-              &nbsp; @ {{ tool.version ?? "unknown" }}<br />
-              <span class="text-primary text-xs">{{ tool.path }}</span>
-            </li>
-          </ul>
-        </template>
         <hr />
-        <SongsFolder />
+        <h3>Songs Folder</h3>
+        <SongsFolder editable />
+        <template v-if="serverCfg.isWebview">
+          <hr />
+          <h3>Theme</h3>
+          <ThemeSwitcher fancy />
+        </template>
       </div>
     </ScrollContainer>
   </div>

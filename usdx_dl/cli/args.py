@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-from usdx_dl import __app__, __version__, models
+from usdx_dl import __version__, models
 
 
 def parse() -> tuple[str | Callable, argparse.Namespace]:
@@ -34,6 +34,8 @@ def parse() -> tuple[str | Callable, argparse.Namespace]:
               ``usdx_dl.cli.<name>.main``.
             - The parsed arguments as a Namespace object.
     """
+    cfg = models.Config.load()
+
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -93,13 +95,13 @@ def parse() -> tuple[str | Callable, argparse.Namespace]:
         type=str,
         help="USDB login session cookie for API requests.",
     )
-    for p in [parser_dl, parser_ls, parser_web, parser_gui]:
+    for p in [parser_dl, parser_ls]:
         p.add_argument(
             "-o",
             "--output-dir",
             metavar="DIR",
             type=Path,
-            default=__app__.user_music_path / "Karaoke",
+            default=cfg.output_dir,
             help="Output directory. (default: %(default)s)",
         )
     for p in [parser_dl, parser_web, parser_gui]:
@@ -107,7 +109,7 @@ def parse() -> tuple[str | Callable, argparse.Namespace]:
             "-m",
             "--models-dir",
             type=Path,
-            default=__app__.user_data_path / "models",
+            default=cfg.models_dir,
             help="Model cache directory. (default: %(default)s)",
         )
     parser_dl.add_argument(
@@ -224,12 +226,6 @@ def parse() -> tuple[str | Callable, argparse.Namespace]:
         help="Port to run the web UI on. (default: %(default)s)",
     )
     for p in [parser_web, parser_gui]:
-        p.add_argument(
-            "--data-dir",
-            type=Path,
-            default=__app__.user_data_path / "data",
-            help="Data directory for the web UI. (default: %(default)s)",
-        )
         p.add_argument(
             "--log-level",
             type=str,
