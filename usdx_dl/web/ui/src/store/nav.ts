@@ -7,4 +7,7 @@ export const $activeTab = persistentJSON<TabId>("tab:active", "tab-instructions"
 
 export type AppPage = "page-main" | "page-setup"
 
-export const $activePage = persistentJSON<AppPage | undefined>("page:active", undefined)
+export const $activePage = persistentJSON<AppPage | undefined | null>(
+  "page:active",
+  undefined,
+)
