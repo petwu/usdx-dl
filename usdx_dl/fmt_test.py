@@ -25,6 +25,7 @@ def test_sub_diacritics(text: str, pattern: str):
 @pytest.mark.parametrize(
     ("title", "artist", "expected"),
     [
+        # cSpell: disable
         (
             "ADELE 'Rolling In The Deep' (Studio Footage)",
             "Adele",
@@ -94,6 +95,11 @@ def test_sub_diacritics(text: str, pattern: str):
             "The Beatles - The Beatles - Hey Jude (Official Music Video) [Remastered 2015]",
             "The Beatles",
             "Hey Jude",
+        ),
+        (
+            "AnnenMayKantereit - Oft gefragt (Official Video)",
+            "AnnenMayKantereit",
+            "Oft gefragt",
         ),
     ],
 )

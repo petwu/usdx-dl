@@ -127,7 +127,7 @@ def clean_title(title: str, artist: str) -> str:
     title = re.sub(
         r"^(.+)\s+(feat\.?|ft\.?)[\s\w-]+$", r"\1", title, flags=re.IGNORECASE
     )
-    title = re.sub(r"(feat\.?|ft\.?)", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s+(feat\.?|ft\.?)", "", title, flags=re.IGNORECASE)
 
     # remove suffixes in braces/brackets, e.g. "(Official Music Video)"
     title = re.sub(r"(\([^)]+\)|\[[^]]+\])", "", title)
