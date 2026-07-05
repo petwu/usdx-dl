@@ -44,6 +44,7 @@ export type PipelineContext = Omit<Settings, "pauseProcessing" | "pin"> & {
 export type ServerState = {
   processing: PipelineContext | null
   queue: PipelineContext[]
+  pending: number
 }
 
 export type Tool = {

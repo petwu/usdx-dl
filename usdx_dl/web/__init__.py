@@ -64,6 +64,7 @@ def init_server(**kwargs) -> tuple[ServerConfig, FastAPI]:
     state.server_cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     state.server_cfg.log_path.write_text("", encoding="utf-8")
     state.processing_state = state.ServerState.load()
+    state.processing_state.pending = 0
     state.processing_state.save()
 
     # instantiate the server and mount the routes

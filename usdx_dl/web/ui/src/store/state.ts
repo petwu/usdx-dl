@@ -4,7 +4,7 @@ import { $activeTab } from "@/store/nav"
 import type { PipelineContext, ServerState } from "@/types/api"
 import { map, onMount } from "nanostores"
 
-export const $state = map<ServerState>({ processing: null, queue: [] })
+export const $state = map<ServerState>({ processing: null, queue: [], pending: 0 })
 
 onMount($state, () => {
   fetchState()

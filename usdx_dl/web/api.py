@@ -1,5 +1,6 @@
 """Web API endpoints."""
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -197,7 +198,9 @@ class ToolsDownloadRequest(BaseModel):
 async def get_tools_download(req: ToolsDownloadRequest) -> None:
     """Download missing tools."""
     try:
-        required_tools.download(req.name)
+        await asyncio.get_running_loop().run_in_executor(
+            None, required_tools.download, req.name
+        )
     except Exception as e:  # pylint: disable=broad-except
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -265,13 +268,18 @@ async def post_queue_add(req: EnqueueRequest) -> models.PipelineContext:
         non_interactive=True,
     )
     prompt = interactive.NonInteractivePrompt()
+    state.processing_state.pending += 1
+    state.processing_state.save()
     try:
-        cli.download.prepare(ctx, cfg.output_dir, prompt)
+        await asyncio.get_running_loop().run_in_executor(
+            None, cli.download.prepare, ctx, cfg.output_dir, prompt
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:  # pylint: disable=broad-except
         raise HTTPException(status_code=500, detail=str(e)) from e
     state.processing_state.queue.append(ctx)
+    state.processing_state.pending -= 1
     state.processing_state.save()
     return ctx
 

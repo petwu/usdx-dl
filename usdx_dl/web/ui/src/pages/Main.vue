@@ -20,6 +20,7 @@ import { $ws, connectWebSocket } from "@/store/websocket"
 import {
   ChevronsLeftRightEllipsis,
   HelpCircle,
+  LoaderCircle,
   Pause,
   Play,
   SendHorizontal,
@@ -37,8 +38,19 @@ const state = useStore($state)
 const activeTab = useVModel($activeTab) as Ref<string>
 const ws = useStore($ws)
 
-// UI state
 const link = ref<string>("")
+const enqueuePending = ref<boolean>(false)
+
+async function enqueue() {
+  $activeTab.set("tab-queue")
+  enqueuePending.value = true
+  try {
+    await addToQueue(link.value)
+    link.value = ""
+  } finally {
+    enqueuePending.value = false
+  }
+}
 </script>
 
 <template>
@@ -55,15 +67,17 @@ const link = ref<string>("")
       <Input
         v-model="link"
         placeholder="https://usdb.animux.de/?link=detail&id=3715"
-        @keyup.enter="addToQueue(link)"
+        :disabled="enqueuePending"
+        @keyup.enter="enqueue()"
       />
       <Button
         size="icon"
-        :disabled="!link"
+        :disabled="!link || enqueuePending"
         title="add to queue"
-        @click="addToQueue(link)"
+        @click="enqueue()"
       >
-        <SendHorizontal />
+        <LoaderCircle v-if="enqueuePending" class="animate-spin" />
+        <SendHorizontal v-else />
       </Button>
     </div>
     <div

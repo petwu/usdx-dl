@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { QueueItem } from "@/components/parts"
+import { QueueItem, QueueSkeleton } from "@/components/parts"
 import ScrollContainer from "@/components/ScrollContainer.vue"
 import TabLink from "@/components/ui/tabs/TabLink.vue"
 import { $activeTab } from "@/store/nav"
@@ -20,28 +20,36 @@ const state = useStore($state) as Ref<ServerState>
 
 <template>
   <ScrollContainer direction="y" autoScroll="y" class="h-full">
+    <div
+      v-if="!state.processing && !state.queue.length && !state.pending"
+      class="absolute top-1/2 left-1/2 flex w-fit -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center"
+    >
+      <p class="text-muted-foreground italic">Queue is empty.</p>
+      <hr class="my-16 w-1/2" />
+      <p>Need help?</p>
+      <TabLink id="tab-instructions" class="w-full">
+        <HelpCircle class="text-blue-500" />
+        View Instructions
+      </TabLink>
+      <TabLink id="tab-songs" class="w-full">
+        <ListMusic class="text-fuchsia-500" />
+        Browse Songs
+      </TabLink>
+    </div>
     <TransitionGroup tag="ul" name="queue" class="relative block min-h-full">
-      <div
-        v-if="!state.processing && !state.queue.length"
-        class="absolute top-1/2 left-1/2 flex w-fit -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center"
-      >
-        <p class="text-muted-foreground italic">Queue is empty.</p>
-        <hr class="my-16 w-1/2" />
-        <p>Need help?</p>
-        <TabLink id="tab-instructions" class="w-full">
-          <HelpCircle class="text-blue-500" />
-          View Instructions
-        </TabLink>
-        <TabLink id="tab-songs" class="w-full">
-          <ListMusic class="text-fuchsia-500" />
-          Browse Songs
-        </TabLink>
-      </div>
       <QueueItem
         v-if="state.processing"
+        as="li"
+        :key="state.processing.uuid"
         :item="state.processing"
         :isProcessing="true"
         @click-badge="$activeTab.set('tab-logs')"
+      />
+      <QueueSkeleton
+        v-for="_ in state.pending ?? 0"
+        as="li"
+        :key="`pending-${_}`"
+        class="not-first:mt-2"
       />
       <QueueItem
         v-for="(item, index) in state.queue"
@@ -74,6 +82,7 @@ const state = useStore($state) as Ref<ServerState>
 .queue-leave-active {
   position: absolute;
   width: 100%;
+  animation: none;
 }
 .queue-enter-from,
 .queue-leave-to {

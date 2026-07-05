@@ -70,6 +70,7 @@ class ServerState(BaseModel):
 
     processing: models.PipelineContext | None = None
     queue: list[models.PipelineContext] = Field(default_factory=list)
+    pending: int = 0
 
     def save(self) -> None:
         """Save the server state to disk."""
