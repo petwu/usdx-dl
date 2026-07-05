@@ -12,6 +12,8 @@ __all__ = ["main"]
 
 def main(**kwargs) -> None:
     """Args: See :func:`.args.parse`."""
+    ansi.force_color()
+
     # initialize the web server
     cfg, app = web.init_server(**kwargs)
     web.print_server_info(cfg)

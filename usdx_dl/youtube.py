@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from usdx_dl import fmt
+from usdx_dl import ansi, fmt
 from usdx_dl.models import SongMetadata
 
 __all__ = ["APIClient", "search"]
@@ -98,8 +98,10 @@ class APIClient:
                 "--force-overwrites",
                 "-o",
                 path.as_posix(),
-                self.url,
             ]
+            if ansi.color_enabled():
+                args += ["--color", "always"]
+            args.append(self.url)
             p = subprocess.run(args, check=False, stderr=subprocess.PIPE)
             if p.returncode == 0:
                 return True
@@ -122,8 +124,10 @@ class APIClient:
                 "--force-overwrites",
                 "-o",
                 path.as_posix(),
-                self.url,
             ]
+            if ansi.color_enabled():
+                args += ["--color", "always"]
+            args.append(self.url)
             p = subprocess.run(args, check=False, stderr=subprocess.PIPE)
             if p.returncode == 0:
                 return True

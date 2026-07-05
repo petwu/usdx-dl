@@ -70,15 +70,25 @@ class ConnectionManager:
             override = (
                 data.startswith("\r")
                 and len(self.log_buffer) > 0
-                and self.log_buffer[-1].endswith("\n")
+                and not self.log_buffer[-1].endswith("\n")
             )
             if override:
                 # handle progress bar updates (e.g. tqdm, yt-dlp) that overwrite
                 # the same line
-                data = data[1:]
-                if not data.endswith("\n"):
-                    data += "\n"
+                data = data[1:]  # remove the leading \r
+                if data == "\n":
+                    # if the progress is terminated with a \r\n, we can just append
+                    # the newline to the last line, which prevents an override in the
+                    # next update
+                    self.log_buffer[-1] += "\n"
+                    return
+                # otherwise we got one of:
+                # - \r<text> -> still in progress
+                # - \r<text>\n -> finished; no override in the next update due to \n
                 self.log_buffer.pop()
+            elif data.startswith("\r"):
+                # e.g. tqdm starts even the first update with a \r; just drop it
+                data = data[1:]  # remove the leading \r
             self.log_buffer.append(data)
             self.log_path.write_text("".join(self.log_buffer), encoding="utf-8")
             data = {"text": data, "override": override}

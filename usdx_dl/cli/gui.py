@@ -8,11 +8,13 @@ import time
 import uvicorn
 import webview
 
-from usdx_dl import __app_name__, platform_utils, sys_utils, web
+from usdx_dl import __app_name__, ansi, platform_utils, sys_utils, web
 
 
 def main(**kwargs) -> None:
     """Args: See :func:`.args.parse`."""
+    ansi.force_color()
+
     # find a free port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))

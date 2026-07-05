@@ -2,9 +2,10 @@
 
 import os
 import sys
+import traceback
 from pathlib import Path
 
-from usdx_dl import ansi, cli, required_tools
+from usdx_dl import __app__, ansi, cli, required_tools
 
 
 def main():
@@ -49,6 +50,9 @@ def main():
     except KeyboardInterrupt:
         print()
     except Exception as e:  # pylint: disable=broad-exception-caught
+        __app__.user_data_path.mkdir(parents=True, exist_ok=True)
+        with open(__app__.user_data_path / "fatal.txt", "w", encoding="utf-8") as f:
+            f.write("".join(traceback.format_exception(type(e), e, e.__traceback__)))
         print(
             f"{ansi.RED}ERROR: {e.__class__.__name__}: {e}{ansi.RESET}", file=sys.stderr
         )

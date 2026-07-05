@@ -34,7 +34,7 @@ const wrapLog = sref<boolean>("switch:wrap-log", false)
       <div
         :class="
           cn([
-            'p-4',
+            'cursor-text p-4 select-text *:min-h-4',
             wrapLog
               ? 'w-full wrap-break-word whitespace-pre-wrap'
               : 'w-fit whitespace-pre',

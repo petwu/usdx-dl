@@ -53,9 +53,14 @@ const ANSI_STYLES: Record<number, string> = {
  * @returns HTML string with styled <span> elements.
  */
 export function ansiToHtml(input: string): string {
-  // Escape HTML special characters in a text node
-  const escapeHtml = (str: string) =>
-    str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  // escape HTML special characters and remove other ANSI sequences
+  const sanitize = (str: string) =>
+    str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      // oxlint-disable-next-line no-control-regex
+      .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "")
 
   // oxlint-disable-next-line no-control-regex
   const ANSI_REGEX = /\x1b\[([0-9;]*)m/g
@@ -68,7 +73,7 @@ export function ansiToHtml(input: string): string {
   while ((match = ANSI_REGEX.exec(input)) !== null) {
     // append any plain text before this escape sequence
     if (match.index > lastIndex) {
-      result += escapeHtml(input.slice(lastIndex, match.index))
+      result += sanitize(input.slice(lastIndex, match.index))
     }
 
     const codes = match[1].split(";").map(Number)
@@ -96,7 +101,7 @@ export function ansiToHtml(input: string): string {
 
   // append any remaining plain text
   if (lastIndex < input.length) {
-    result += escapeHtml(input.slice(lastIndex))
+    result += sanitize(input.slice(lastIndex))
   }
 
   // close any unclosed spans

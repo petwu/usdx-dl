@@ -1,4 +1,9 @@
 """ANSI color codes."""
+# pylint: disable=global-statement
+
+import os
+import platform
+import sys
 
 RESET = "\033[0m"
 BLACK = "\033[0;30m"
@@ -19,12 +24,46 @@ INVERSE = "\033[7m"
 HIDDEN = "\033[8m"
 STRIKETHROUGH = "\033[9m"
 
-if not __import__("sys").stdout.isatty():
-    for _ in dir():
-        if isinstance(_, str) and not _.startswith("_"):
-            locals()[_] = ""
-else:
-    if __import__("platform").system() == "Windows":
+
+def __getattr__(name: str) -> str:
+    if name not in globals():
+        raise AttributeError(f"module {__name__} has no attribute {name}")
+
+    value = globals()[name]
+    if not isinstance(value, str) or not value.startswith("\033["):
+        return value
+    if (
+        not sys.stdout.isatty()  #
+        and os.environ.get("FORCE_COLOR", "0").lower() not in ("1", "true", "yes")
+        or os.environ.get("NO_COLOR", "0").lower() in ("1", "true", "yes")
+    ):
+        return ""
+
+    return value
+
+
+def force_color() -> None:
+    """Force ANSI color codes to be enabled."""
+    # cSpell: ignore CLICOLOR
+    os.environ["FORCE_COLOR"] = "1"
+    os.environ["CLICOLOR_FORCE"] = "1"
+    os.environ["CLICOLOR"] = "1"
+    os.environ["AV_LOG_FORCE_COLOR"] = "1"  # ffmpeg
+
+
+def color_enabled() -> bool | None:
+    """Check if ANSI color codes are enabled."""
+    no_color = os.getenv("NO_COLOR", "0").lower() in ("1", "true", "yes")
+    if no_color:
+        return False
+    force = os.getenv("FORCE_COLOR", "0").lower() in ("1", "true", "yes")
+    if force:
+        return True
+    return None
+
+
+if sys.stdout.isatty():
+    if platform.system() == "Windows":
         kernel32 = __import__("ctypes").windll.kernel32
         kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
         del kernel32
