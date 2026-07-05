@@ -17,7 +17,7 @@ def main():
             [
                 os.environ.get("PATH", ""),
                 str(Path(sys.executable).parent),
-                str(required_tools.private_bin_dir()),
+                str(required_tools.bin_path()),
             ]
         )
         if models_dir := getattr(args, "models_dir", None):

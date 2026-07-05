@@ -17,8 +17,8 @@ router = APIRouter(prefix="/api")
 def setup_done() -> bool:
     """Check if the initial setup is done."""
     cfg = models.Config.load()
-    tools = required_tools.query()
-    return cfg.initial_setup_done and all(tool.path for tool in tools)
+    tools = required_tools.query_all()
+    return cfg.initial_setup_done and not any(tool.download_required for tool in tools)
 
 
 class PartialServerConfig(BaseModel):
@@ -182,7 +182,7 @@ async def patch_songs_directory(req: SongsPatchPatchRequest) -> Path:
 @router.get("/tools")
 async def get_tools() -> list[models.Tool]:
     """Get a list of all available tools."""
-    return required_tools.query()
+    return required_tools.query_all()
 
 
 class ToolsDownloadRequest(BaseModel):

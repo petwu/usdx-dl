@@ -22,7 +22,7 @@ dependencies = [
     "torchvision",
     "watchdog",
     "whisperx~=3.8",
-    "yt-dlp",
+    "yt-dlp[default]",
 ]
 
 [project.optional-dependencies]
@@ -60,6 +60,7 @@ cache-dir = ".cache/ruff"
 
 [tool.pytest]
 cache_dir = ".cache/pytest"
+markers = ["slow: marks tests as slow"]
 
 [tool.mypy]
 cache_dir = ".cache/mypy"

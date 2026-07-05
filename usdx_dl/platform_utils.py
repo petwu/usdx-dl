@@ -10,6 +10,7 @@ import platform
 import shutil
 import subprocess
 from collections.abc import Sequence
+from enum import StrEnum
 from pathlib import Path
 
 
@@ -143,7 +144,7 @@ def file_dialog(
         dialog.setWindowTitle(title)
 
     if filters:
-        dialog.setNameFilters(set(filters))
+        dialog.setNameFilters(filters)
 
     if default:
         dialog.setDirectory(default)
@@ -158,3 +159,32 @@ def file_dialog(
         return Path(dialog.selectedFiles()[0])
 
     return None
+
+
+class Arch(StrEnum):
+    """CPU architecture."""
+
+    X86 = "x86"
+    X86_64 = "x86_64"
+    ARM = "arm"
+    ARM64 = "arm64"
+    OTHER = "other"
+
+
+def arch() -> Arch:
+    """Get the CPU architecture of the current system.
+
+    Returns:
+        The CPU architecture as an Arch enum member.
+    """
+    match platform.machine().lower():
+        case "x86" | "i386" | "i686":
+            return Arch.X86
+        case "x86_64" | "amd64":
+            return Arch.X86_64
+        case "arm" | "armv6l" | "armv7l" | "armv8l":
+            return Arch.ARM
+        case "aarch64" | "arm64":
+            return Arch.ARM64
+        case _:
+            return Arch.OTHER

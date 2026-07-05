@@ -48,11 +48,21 @@ export type ServerState = {
 
 export type Tool = {
   name: string
+  reason: string
   path: string
   version: string | null
-  latest: string
-  downloadUrl: string
+  downloadRequired: boolean
+  downloadPath: string
+  downloadInfo: {
+    version: string
+    url: string
+    sha256: string
+  }
   homepage: string
+  repository: string
+  provider: string | null
+  license: string
+  licenseUrl: string
 }
 
 export type MsgType = "log" | "error" | "update"

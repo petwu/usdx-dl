@@ -28,11 +28,11 @@ export const badgeVariants = cva(
         false: "rounded-sm",
       },
       size: {
-        xs: "text-xs",
-        sm: "text-sm",
-        md: "text-md",
-        lg: "text-lg",
-        xl: "text-xl",
+        xs: "text-xs [&>svg]:size-3",
+        sm: "text-sm [&>svg]:size-3.5",
+        md: "text-base [&>svg]:size-4",
+        lg: "text-lg [&>svg]:size-4.5",
+        xl: "text-xl [&>svg]:size-5",
       },
     },
     defaultVariants: {

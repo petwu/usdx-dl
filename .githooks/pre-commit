@@ -83,4 +83,4 @@ fi
 
 # test
 step "Running Python tests"
-pytest -q
+pytest -q -m "not slow"

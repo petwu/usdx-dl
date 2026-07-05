@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Self, Sequence, TypeVar
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, TypeAdapter
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field, TypeAdapter
 
 from usdx_dl import __app__
 
@@ -132,15 +132,30 @@ class USDBSession(BaseModel):
     model_config = config
 
 
+class DownloadInfo(BaseModel):
+    """A download item."""
+
+    version: str = Field(frozen=True)
+    url: str = Field(frozen=True)
+    sha256: str = Field(frozen=True)
+    member: str | None = Field(frozen=True, default=None)
+
+
 class Tool(BaseModel):
     """Model representing a missing required tool."""
 
     name: str
+    reason: str
     path: Path
     version: str | None
-    latest: str
-    download_url: str
+    download_required: bool
+    download_path: Path
+    download_info: DownloadInfo
     homepage: str
+    repository: str
+    provider: str | None
+    license: str
+    license_url: str
 
     model_config = config
 

@@ -1,13 +1,16 @@
 animux
 autoraise
+autouse
 bestaudio
 bestvideo
+calver
 corrcoef
 demucs
 denoise
 denoised
 denoising
 fastapi
+ffprobe
 fmax
 fmin
 gethostname
@@ -22,6 +25,8 @@ lucide
 mkdirs
 mypy
 nanostores
+noopener
+noreferrer
 numba
 nums
 oklab
