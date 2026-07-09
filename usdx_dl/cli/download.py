@@ -25,6 +25,7 @@ from usdx_dl import (
     lyrics,
     models,
     silence,
+    swift_f0,
     syllables,
     usdb,
     usdx,
@@ -615,6 +616,7 @@ def process(
         progress.pitch(0.4)
         if should_run(paths.pitch, ctx.force, Force.PITCH):
             # NOTE: can't track exact progress with onnxruntime
+            pitched_data = swift_f0.detect_pitch(paths.vocals_muted)
             models.to_json(pitched_data, paths.pitch)
             __print_time(perf_counter() - t)
         else:
