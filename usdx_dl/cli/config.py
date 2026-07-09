@@ -11,7 +11,7 @@ from usdx_dl import ansi, models
 
 def main(
     key: str | None = None,
-    value: Any | None = None,
+    value: str | None = None,
 ):
     """Args: See :func:`.args.parse`."""
     # Load config
@@ -58,8 +58,20 @@ def main(
 
     else:
         # set specific config value
-        parsed_value: Any = TypeAdapter(
+        adapter: TypeAdapter = TypeAdapter(
             cfg_fields[key].annotation  # pylint: disable=unsubscriptable-object
-        ).validate_json(value)
+        )
+        try:
+            parsed_value: Any = adapter.validate_json(value)
+        except ValidationError:
+            try:
+                parsed_value = adapter.validate_python(value)
+            except ValidationError as e:
+                print(
+                    f"{ansi.RED}ERROR: Invalid value for config key {key}: {value}{ansi.RESET}",
+                    file=sys.stderr,
+                )
+                print(str(e), file=sys.stderr)
+                sys.exit(1)
         setattr(cfg, key, parsed_value)
         cfg.save()

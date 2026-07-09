@@ -47,6 +47,7 @@ usdx-dl = "usdx_dl.__main__:main"
 [tool.uv]
 index-strategy = "unsafe-best-match"
 override-dependencies = [
+    "beartype>=0.22.9",
     "numba>=0.60.0",
     "torch~=2.12.0",
     "torchaudio~=2.11.0",

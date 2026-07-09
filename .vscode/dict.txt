@@ -1,6 +1,7 @@
 animux
 autoraise
 autouse
+beartype
 bestaudio
 bestvideo
 calver
