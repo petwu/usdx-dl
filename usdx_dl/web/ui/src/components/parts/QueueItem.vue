@@ -14,6 +14,7 @@ import {
   ArrowDownToLine,
   ArrowUp,
   ArrowUpToLine,
+  Ban,
   Check,
   LoaderCircle,
   Pencil,
@@ -68,6 +69,7 @@ const emit = defineEmits<{
   (e: "move", item: PipelineContext, direction: "up" | "down", toEnd: boolean): void
   (e: "update", item: PipelineContext, done: () => void): void
   (e: "remove", item: PipelineContext): void
+  (e: "cancel", item: PipelineContext): void
   (e: "retry", item: PipelineContext): void
   (e: "click-badge"): void
 }>()
@@ -134,7 +136,7 @@ const lyricsSearchUrl = computed(
       class="size-24 shrink-0 rounded-br-lg object-cover"
     />
     <div v-else class="bg-muted size-24 shrink-0 rounded-br-lg" />
-    <div :class="cn('grow', editable && 'max-md:pr-0.5')">
+    <div :class="cn('grow md:pb-2', editable && 'max-md:pr-0.5')">
       <h3 v-if="!editable" class="font-bold">{{ meta.title }}</h3>
       <Input
         v-else
@@ -213,7 +215,7 @@ const lyricsSearchUrl = computed(
       <Badge
         v-if="isProcessing"
         variant="default"
-        class="mt-1 mb-2 cursor-pointer"
+        class="mt-1 cursor-pointer"
         @click="$emit('click-badge')"
       >
         <LoaderCircle class="animate-spin" /> Processing ...
@@ -403,6 +405,29 @@ const lyricsSearchUrl = computed(
             <Save />
           </Button>
         </template>
+      </ButtonGroup>
+    </div>
+    <div
+      v-else
+      class="flex flex-row justify-end max-md:col-span-2 md:col-start-3 md:row-start-1 md:mt-2 md:mr-2"
+    >
+      <ButtonGroup
+        :class="
+          cn(
+            '*:disabled:*:opacity-25 *:disabled:opacity-100',
+            'max-md:*:border-b-0 max-md:*:first:rounded-bl-none max-md:*:last:rounded-tr-none max-md:*:last:border-r-0',
+          )
+        "
+      >
+        <Button
+          size="icon"
+          variant="destructive"
+          title="cancel processing"
+          :disabled="props.disabled"
+          @click="$emit('cancel', props.item)"
+        >
+          <Ban />
+        </Button>
       </ButtonGroup>
     </div>
   </component>

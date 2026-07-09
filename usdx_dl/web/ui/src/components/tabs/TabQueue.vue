@@ -3,6 +3,7 @@ import { BorderBeam, QueueItem, QueueSkeleton } from "@/components/parts"
 import ScrollContainer from "@/components/ScrollContainer.vue"
 import TabLink from "@/components/ui/tabs/TabLink.vue"
 import { $activeTab } from "@/store/nav"
+import { cancelWorker } from "@/store/settings"
 import {
   $progress,
   $state,
@@ -23,7 +24,7 @@ const progress = useStore($progress)
 <template>
   <ScrollContainer direction="y" autoScroll="y" class="h-full">
     <div
-      v-if="!state.processing && !state.queue.length && !state.pending"
+      v-if="!state.processing && !state.queue.length && !state.pending && false"
       class="absolute top-1/2 left-1/2 z-10 flex w-fit -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center"
     >
       <p class="text-muted-foreground italic">Queue is empty.</p>
@@ -51,14 +52,9 @@ const progress = useStore($progress)
           :isProcessing="true"
           :progress="progress"
           @click-badge="$activeTab.set('tab-logs')"
+          @cancel="cancelWorker"
         />
       </BorderBeam>
-      <QueueSkeleton
-        v-for="_ in state.pending ?? 0"
-        as="li"
-        :key="`pending-${_}`"
-        class="not-first:mt-2"
-      />
       <QueueItem
         v-for="(item, index) in state.queue"
         :key="item.uuid"
@@ -71,6 +67,12 @@ const progress = useStore($progress)
         @move="moveQueueItem"
         @update="updateQueueItem"
         @retry="retryQueueItem"
+      />
+      <QueueSkeleton
+        v-for="_ in state.pending ?? 0"
+        as="li"
+        :key="`pending-${_}`"
+        class="not-first:mt-2"
       />
     </TransitionGroup>
   </ScrollContainer>

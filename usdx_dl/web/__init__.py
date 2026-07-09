@@ -4,7 +4,6 @@ import asyncio
 import socket
 import webbrowser
 from contextlib import asynccontextmanager
-from threading import Thread
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,8 +27,7 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
         tee=state.server_cfg.tee,
     ):
         # start worker thread
-        worker_thread = Thread(target=worker.loop, daemon=True)
-        worker_thread.start()
+        worker.start()
 
         # open browser if requested
         if state.server_cfg.open_browser:
@@ -47,11 +45,10 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
         yield
 
         # stop all background threads
-        worker.stop_event.set()
         for o in fs_observers:
             o.stop()
             o.join(timeout=1)
-        worker_thread.join(timeout=3)
+        worker.stop()
 
 
 def init_server(**kwargs) -> tuple[ServerConfig, FastAPI]:

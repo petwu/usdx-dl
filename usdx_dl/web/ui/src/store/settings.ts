@@ -1,6 +1,7 @@
 import { apiUrl } from "@/lib/host"
 import { addError } from "@/store/errors"
 import { $activeTab } from "@/store/nav"
+import { $progress } from "@/store/state"
 import type { ServerConfig, Settings } from "@/types/api"
 import { persistentMap } from "@nanostores/persistent"
 import { listenKeys, map, onMount } from "nanostores"
@@ -34,7 +35,8 @@ onMount($settings, () => {
 
 onMount($serverCfg, () => {
   fetchServerConfig()
-  return () => {}
+  const interval = setInterval(fetchServerConfig, 3000)
+  return () => clearInterval(interval)
 })
 
 onMount($pin, () => {
@@ -106,5 +108,13 @@ export async function togglePauseProcessing() {
   await fetch(apiUrl(pauseProcessing ? "/worker/resume" : "/worker/pause"), {
     method: "POST",
   })
+  await fetchServerConfig()
+}
+
+export async function cancelWorker() {
+  await fetch(apiUrl("/worker/cancel"), {
+    method: "POST",
+  })
+  $progress.set(0)
   await fetchServerConfig()
 }

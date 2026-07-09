@@ -165,7 +165,9 @@ async function enqueue() {
           <TriangleAlert :size="16" :stroke-width="2.5" class="mt-0.5" />
           <div>
             <p>Processing is paused ...</p>
-            <p v-if="state.processing">(The current item will be finished.)</p>
+            <p v-if="state.processing">
+              The current item will be finished unless cancelled.
+            </p>
           </div>
         </div>
       </template>

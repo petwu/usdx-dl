@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from usdx_dl import cli, models, platform_utils, required_tools, usdb
-from usdx_dl.web import state
+from usdx_dl.web import state, worker
 
 __all__ = ["router"]
 
@@ -241,13 +241,19 @@ async def post_settings(cfg: models.Config) -> None:
 @router.post("/worker/pause")
 async def post_worker_pause() -> None:
     """Pause the processing queue."""
-    state.server_cfg.pause_processing = True
+    worker.pause()
 
 
 @router.post("/worker/resume")
 async def post_worker_resume() -> None:
     """Resume the processing queue."""
-    state.server_cfg.pause_processing = False
+    worker.resume()
+
+
+@router.post("/worker/cancel")
+async def post_worker_cancel() -> None:
+    """Cancel the current processing item."""
+    worker.cancel()
 
 
 class EnqueueRequest(BaseModel):
