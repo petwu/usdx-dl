@@ -8,6 +8,8 @@ dependencies = [
     "audio-separator~=0.44",
     "cryptography",
     "fastapi[standard]==0.138.0",
+    "langcodes",
+    "language-data",
     "librosa",
     "num2words",
     "onnxruntime",
@@ -62,6 +64,10 @@ cache-dir = ".cache/ruff"
 [tool.pytest]
 cache_dir = ".cache/pytest"
 markers = ["slow: marks tests as slow"]
+
+[tool.pylint.basic]
+# cSpell: disable-next-line
+good-names-rgxs = ["^[A-Z]+(_\\w+)?$"]
 
 [tool.mypy]
 cache_dir = ".cache/mypy"

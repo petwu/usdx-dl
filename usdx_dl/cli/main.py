@@ -26,6 +26,8 @@ def main():
             os.environ["TORCH_HOME"] = f"{models_dir}/torch"
             os.environ["HF_HOME"] = f"{models_dir}/hf"
             os.environ["AUDIO_SEPARATOR_MODEL_DIR"] = f"{models_dir}/separator"
+            os.environ["FT_MODELS_DIR"] = f"{models_dir}/fasttext"
+            Path(f"{models_dir}/separator").mkdir(parents=True, exist_ok=True)
 
         # check for missing CLI tools
         if subcmd in ["download"]:

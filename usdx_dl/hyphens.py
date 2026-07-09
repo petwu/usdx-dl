@@ -25,7 +25,12 @@ def hyphenate_transcription(
         Hyphenated transcription.
     """
 
-    hyphenator = Hyphenator(language)
+    try:
+        hyphenator = Hyphenator(language)
+    except IOError:
+        # no hyphenation dictionary for the specified language, return data as is
+        return transcribed_data
+
     hyphenated_words = [
         hyphenate_word(data.word, hyphenator) for data in transcribed_data
     ]

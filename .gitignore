@@ -11,12 +11,12 @@
 !.vscode/*.code-snippets
 !.vscode/*.txt
 bin/
-models/
 songs/
 dist/
 out/
 output/
 build/
+tmp/
 __pycache__/
 *.pyc
 uv.lock

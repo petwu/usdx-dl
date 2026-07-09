@@ -9,7 +9,7 @@ import whisperx
 from num2words import num2words
 from whisperx.schema import SingleAlignedSegment, SingleSegment
 
-from usdx_dl import lyrics
+from usdx_dl import lang, lyrics
 from usdx_dl.models import TranscribedData
 from usdx_dl.types import ProgressCallback
 
@@ -67,7 +67,13 @@ def transcribe(
         # use existing lyrics
         synced_lyrics = Path(lyrics_path).read_text(encoding="utf-8")
         segments = lyrics_to_segments(synced_lyrics)
-        language = model.detect_language(audio)
+        lng, score = lang.detect(lyrics.strip(synced_lyrics))
+        if score > 0.5 and lng.language:
+            # NOTE: for all the languages whisperx supports, the language codes from
+            # fasttext are identical
+            language = lng.language
+        else:
+            language = model.detect_language(audio)  # from the first 30s
         progress_callback(0.20)
     else:
         # predict lyrics
@@ -81,9 +87,17 @@ def transcribe(
         segments = result["segments"]
         language = result["language"]
 
-    model_align, metadata = whisperx.load_align_model(
-        language_code=language, device=device, model_name=align_arch
-    )
+    try:
+        model_align, metadata = whisperx.load_align_model(
+            language_code=language, device=device, model_name=align_arch
+        )
+    except ValueError as e:
+        if "language" in str(e):
+            raise ValueError(
+                f"Can't transcribe this song, because the language '{language}' "
+                "is not supported by whisperx."
+            ) from e
+        raise e
 
     if not keep_numbers:
         for obj in segments:

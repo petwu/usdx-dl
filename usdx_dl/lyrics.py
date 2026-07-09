@@ -64,3 +64,17 @@ def parse(lyrics: str) -> list[tuple[float, str]]:
         text = match.group("text").strip()
         parsed.append((timestamp, text))
     return parsed
+
+
+def strip(lyrics: str) -> str:
+    """Remove LRC metadata and timestamps from synced lyrics."""
+    stripped: list[str] = []
+    for line in lyrics.splitlines():
+        line = line.strip()
+        # skip comments and metadata/ID tags
+        if line.startswith("#") or re.match(r"^\[[a-z]+:.+\]$", line):
+            continue
+        # remove timestamps
+        line = re.sub(r"\[\d+:\d+(\.\d+)?\]", "", line).strip()
+        stripped.append(line)
+    return "\n".join(stripped)
