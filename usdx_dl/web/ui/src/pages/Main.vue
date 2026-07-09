@@ -66,7 +66,7 @@ async function enqueue() {
     <div class="flex gap-2">
       <Input
         v-model="link"
-        placeholder="https://usdb.animux.de/?link=detail&id=3715"
+        placeholder="USDB or YouTube URL"
         :disabled="enqueuePending"
         @keyup.enter="enqueue()"
       />

@@ -107,8 +107,10 @@ function updatePin() {
           <hr />
         </template>
         <template v-if="haveSettings">
-          <h3>Download Options</h3>
+          <h3>USDB Cookie</h3>
           <UsdbCookie v-model="usdbCookieModel" :disabled="locked" collapsed />
+          <hr />
+          <h3>Download Options</h3>
           <div class="mt-4 grid grid-cols-[auto_1fr] items-center gap-2">
             <Switch
               v-model="noVideoModel"
