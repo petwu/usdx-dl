@@ -48,7 +48,7 @@ const id = {
   dark: useId(),
   auto: useId(),
 }
-const lsKey = "color-mode" // same as in ThemeDetection.astro
+const lsKey = "color-mode"
 const prefersDark = ref<boolean>(false)
 const modesRotation = ref<string[]>([])
 const store = ref<string>("auto")
@@ -58,7 +58,7 @@ const modes: Record<string, FunctionalComponent> = {
   auto: SunMoon,
 }
 
-watch(store, setColorMode, { immediate: true })
+watch(store, setColorMode)
 
 function applyColorMode() {
   if (

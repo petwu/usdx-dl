@@ -1,3 +1,4 @@
+export { default as BorderBeam } from "./BorderBeam.vue"
 export { default as MusicBars } from "./MusicBars.vue"
 export { default as QueueItem } from "./QueueItem.vue"
 export { default as QueueSkeleton } from "./QueueSkeleton.vue"

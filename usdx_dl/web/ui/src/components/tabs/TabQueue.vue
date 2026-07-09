@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { QueueItem, QueueSkeleton } from "@/components/parts"
+import { BorderBeam, QueueItem, QueueSkeleton } from "@/components/parts"
 import ScrollContainer from "@/components/ScrollContainer.vue"
 import TabLink from "@/components/ui/tabs/TabLink.vue"
 import { $activeTab } from "@/store/nav"
@@ -39,15 +39,20 @@ const progress = useStore($progress)
       </TabLink>
     </div>
     <TransitionGroup tag="ul" name="queue" class="relative block min-h-full">
-      <QueueItem
+      <BorderBeam
         v-if="state.processing"
         as="li"
-        :key="state.processing.uuid"
-        :item="state.processing"
-        :isProcessing="true"
-        :progress="progress"
-        @click-badge="$activeTab.set('tab-logs')"
-      />
+        border-width="2px"
+        class="border-primary/20 rounded"
+      >
+        <QueueItem
+          :key="state.processing.uuid"
+          :item="state.processing"
+          :isProcessing="true"
+          :progress="progress"
+          @click-badge="$activeTab.set('tab-logs')"
+        />
+      </BorderBeam>
       <QueueSkeleton
         v-for="_ in state.pending ?? 0"
         as="li"

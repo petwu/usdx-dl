@@ -109,8 +109,9 @@ const lyricsSearchUrl = computed(
         'bg-card relative overflow-hidden rounded border p-0',
         'grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-2',
         'md:grid-cols-[auto_1fr_auto] md:grid-rows-[auto]',
-        isProcessing && 'border-primary! bg-primary/10 grid-rows-[auto]',
-        props.item.reviewed === false && 'border-fuchsia-500! bg-fuchsia-500/10',
+        isProcessing &&
+          'bg-primary/5 grid-rows-[auto] rounded-[calc(var(--radius)-var(--border-beam-width,0px))] border-none',
+        props.item.reviewed === false && 'border-fuchsia-500! bg-fuchsia-500/5',
         props.class,
       )
     "
@@ -119,8 +120,8 @@ const lyricsSearchUrl = computed(
       v-if="progress"
       :class="
         cn(
-          'absolute top-0 left-0 -z-10 h-full w-0',
-          'bg-primary/20',
+          'absolute inset-0 right-auto -z-10 w-0',
+          'bg-primary/10',
           'transition-all duration-300 ease-linear',
         )
       "
@@ -212,7 +213,7 @@ const lyricsSearchUrl = computed(
       <Badge
         v-if="isProcessing"
         variant="default"
-        class="my-1 cursor-pointer"
+        class="mt-1 mb-2 cursor-pointer"
         @click="$emit('click-badge')"
       >
         <LoaderCircle class="animate-spin" /> Processing ...
