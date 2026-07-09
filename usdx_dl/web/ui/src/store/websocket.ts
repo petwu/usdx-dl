@@ -4,7 +4,7 @@ import { addError } from "@/store/errors"
 import { $logBuffer } from "@/store/logs"
 import { $settings } from "@/store/settings"
 import { $songs } from "@/store/songs"
-import { $state } from "@/store/state"
+import { $progress, $state } from "@/store/state"
 import type { MsgType } from "@/types/api"
 import { atom } from "nanostores"
 
@@ -81,6 +81,11 @@ async function handleWebSocketMessage(msg: string) {
           default:
             addError(`Unhandled update type: ${data.what}`, data)
         }
+        break
+
+      // progress updates from the worker thread
+      case "progress":
+        $progress.set(data * 100)
         break
 
       default:

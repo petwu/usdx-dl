@@ -4,6 +4,7 @@ import ScrollContainer from "@/components/ScrollContainer.vue"
 import TabLink from "@/components/ui/tabs/TabLink.vue"
 import { $activeTab } from "@/store/nav"
 import {
+  $progress,
   $state,
   moveQueueItem,
   removeFromQueue,
@@ -16,13 +17,14 @@ import { useStore } from "@nanostores/vue"
 import type { Ref } from "vue"
 
 const state = useStore($state) as Ref<ServerState>
+const progress = useStore($progress)
 </script>
 
 <template>
   <ScrollContainer direction="y" autoScroll="y" class="h-full">
     <div
       v-if="!state.processing && !state.queue.length && !state.pending"
-      class="absolute top-1/2 left-1/2 flex w-fit -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center"
+      class="absolute top-1/2 left-1/2 z-10 flex w-fit -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center"
     >
       <p class="text-muted-foreground italic">Queue is empty.</p>
       <hr class="my-16 w-1/2" />
@@ -43,6 +45,7 @@ const state = useStore($state) as Ref<ServerState>
         :key="state.processing.uuid"
         :item="state.processing"
         :isProcessing="true"
+        :progress="progress"
         @click-badge="$activeTab.set('tab-logs')"
       />
       <QueueSkeleton

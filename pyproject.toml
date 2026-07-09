@@ -73,6 +73,7 @@ module = [
     "soundfile.*",
     "num2words.*",
     "hyphen.*",
+    "tqdm.*",
     "yt_dlp.*",
 ]
 follow_untyped_imports = true

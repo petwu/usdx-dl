@@ -50,7 +50,11 @@ def loop() -> None:
         state.processing_state.processing = ctx
         state.processing_state.save()
         try:
-            cli.download.process(ctx, output_dir)
+            cli.download.process(
+                ctx,
+                output_dir,
+                progress_callback=lambda p: ws.broadcast(ws.MsgType.PROGRESS, p),
+            )
         except Exception as e:  # pylint: disable=broad-except
             msg = f"Error processing {ctx.url_or_id}: {e}"
             if ctx.errors is None:

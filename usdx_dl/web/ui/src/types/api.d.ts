@@ -66,4 +66,4 @@ export type Tool = {
   licenseUrl: string
 }
 
-export type MsgType = "log" | "error" | "update"
+export type MsgType = "log" | "error" | "update" | "progress"

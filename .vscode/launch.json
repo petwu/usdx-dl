@@ -5,12 +5,33 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "download",
+      "name": "download (usdb)",
       "type": "debugpy",
       "request": "launch",
       "module": "usdx_dl",
       "cwd": "${workspaceFolder}",
-      "args": ["https://www.youtube.com/watch?v=fOs0G3KLdY4", "-f", "txt"],
+      "args": [
+        "https://usdb.animux.de/?link=detail&id=1368",
+        "-o",
+        "${workspaceFolder}/tmp",
+        "-f"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "download (youtube)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "usdx_dl",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "-o",
+        "${workspaceFolder}/tmp",
+        "-f",
+        "--no-lyrics"
+      ],
       "console": "integratedTerminal",
       "justMyCode": false
     },

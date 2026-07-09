@@ -11,6 +11,7 @@ from whisperx.schema import SingleAlignedSegment, SingleSegment
 
 from usdx_dl import lyrics
 from usdx_dl.models import TranscribedData
+from usdx_dl.types import ProgressCallback
 
 __all__ = ["transcribe"]
 
@@ -23,7 +24,8 @@ def transcribe(
     compute_type: Literal["int8", "float16", "float32"] | None = None,
     align_arch: str | None = None,
     keep_numbers: bool = False,
-    progress: bool = True,
+    print_progress: bool = True,
+    progress_callback: ProgressCallback | None = None,
 ) -> tuple[str, list[TranscribedData]]:
     """Transcribe an audio file into word-level items.
 
@@ -40,6 +42,8 @@ def transcribe(
         keep_numbers: Whether to keep numbers as digits (1, 2, 3, etc.) or replace
             them with words (one, two, three, etc.).
         progress: Whether to print progress during inference.
+        progress_callback: Optional callback function to report progress as a float
+            between 0.0 and 1.0.
 
     Returns:
         Recognized language and words with timestamps.
@@ -47,17 +51,33 @@ def transcribe(
     audio_path = Path(audio_path)
     if compute_type is None:
         compute_type = "float16" if device == "cuda" else "int8"
+    if progress_callback is None:
+        progress_callback = lambda _: None  # noqa  # pylint: disable-all
+
+    have_lyrics = lyrics_path and Path(lyrics_path).exists()
+    if have_lyrics:
+        # don't need a large model for language detection
+        model_arch = "turbo"
 
     model = whisperx.load_model(model_arch, device=device, compute_type=compute_type)
     audio = whisperx.load_audio(audio_path)
-    if lyrics_path and Path(lyrics_path).exists():
+    progress_callback(0.15)  # just rough estimates
+    if have_lyrics:
+        assert lyrics_path is not None
         # use existing lyrics
         synced_lyrics = Path(lyrics_path).read_text(encoding="utf-8")
         segments = lyrics_to_segments(synced_lyrics)
         language = model.detect_language(audio)
+        progress_callback(0.20)
     else:
         # predict lyrics
-        result = model.transcribe(audio, print_progress=progress)
+        result = model.transcribe(
+            audio,
+            print_progress=print_progress,
+            progress_callback=lambda progress: progress_callback(
+                0.15 + 0.7 * progress / 100  # 15-85%
+            ),
+        )
         segments = result["segments"]
         language = result["language"]
 
@@ -76,6 +96,12 @@ def transcribe(
         audio,
         device=device,
         return_char_alignments=False,
+        print_progress=print_progress,
+        progress_callback=lambda progress: progress_callback(
+            0.2 + 0.8 * progress / 100  # 20-100%
+            if have_lyrics
+            else 0.85 + 0.15 * progress / 100  # 85-100%
+        ),
     )
 
     items: list[TranscribedData] = []
@@ -90,6 +116,8 @@ def transcribe(
                     score=word["score"],
                 )
             )
+
+    progress_callback(1.0)
 
     return language, items
 

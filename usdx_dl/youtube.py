@@ -4,8 +4,13 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
+
+import yt_dlp
+from yt_dlp.utils import YoutubeDLError
 
 from usdx_dl import ansi, fmt
+from usdx_dl.ffmpeg import ProgressCallback
 from usdx_dl.models import SongMetadata
 
 __all__ = ["APIClient", "search"]
@@ -35,9 +40,9 @@ class APIClient:
     def data(self) -> dict:
         """Video metadata."""
         if self._data is None:
-            args = ["yt-dlp", "--dump-json", self.url]
-            output = subprocess.run(args, stdout=subprocess.PIPE, check=True).stdout
-            self._data = json.loads(output.decode("utf-8"))
+            params: dict = {}
+            with yt_dlp.YoutubeDL(params) as ydl:  # type: ignore
+                self._data = dict(ydl.extract_info(self.url, download=False))
         return self._data  # type: ignore
 
     @data.setter
@@ -53,11 +58,13 @@ class APIClient:
         )
         title = fmt.clean_title(self.data["title"], artist)
         year = int(self.data.get("release_year") or self.data["upload_date"][:4])
+        duration = self.data.get("duration")
         thumbnail = self.data.get("thumbnail")
         return SongMetadata(
             artist=artist,
             title=title,
             year=year,
+            duration=duration,
             video_url=self.url,
             cover_url=thumbnail,
             bg_url=thumbnail,
@@ -79,60 +86,98 @@ class APIClient:
             is not None
         )
 
-    def download_audio(self, path: Path | str, sample_rate: int) -> bool:
+    @staticmethod
+    def progress_book(callback: ProgressCallback | None):
+        """Create a progress hook for yt-dlp that calls the given callback with the
+        download progress as a float in [0, 1]."""
+
+        def hook(d: dict[str, Any]) -> None:
+            if not callable(callback):
+                return
+            if d["status"] == "downloading":
+                total_bytes = d.get("total_bytes") or d.get("total_bytes_estimate")
+                if total_bytes:
+                    progress = d["downloaded_bytes"] / total_bytes
+                    progress = min(max(progress, 0.0), 1.0)
+                    callback(progress)
+            elif d["status"] == "finished":
+                callback(1.0)
+
+        return hook
+
+    def download_audio(
+        self,
+        path: Path | str,
+        sample_rate: int,
+        progress_callback: ProgressCallback | None = None,
+    ) -> bool:
         """Download the audio of the video."""
         attempt = 0
         while attempt < self.max_tries:
             attempt += 1
             path = Path(path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            args = [
-                "yt-dlp",
-                "-f",
-                "bestaudio",
-                "--extract-audio",
-                "--audio-format",
-                path.suffix[1:],
-                "--postprocessor-args",
-                f"ffmpeg:-ar {sample_rate}",
-                "--force-overwrites",
-                "-o",
-                path.as_posix(),
-            ]
+            ext = path.suffix[1:] if path.suffix else "mp3"
+            params = {
+                # cSpell: disable
+                "format": "bestaudio",  # -f bestaudio
+                "final_ext": ext,  # --audio-format <ext>
+                "outtmpl": {"default": path.as_posix()},  # -o <path>
+                "overwrites": True,  # --force-overwrites
+                "postprocessor_args": {
+                    "ffmpeg": ["-ar", str(sample_rate)]
+                },  # --postprocessor-args "ffmpeg:-ar <sample_rate>"
+                "postprocessors": [  # --extract-audio
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": ext,
+                    }
+                ],
+                # cSpell: enable
+            }
             if ansi.color_enabled():
-                args += ["--color", "always"]
-            args.append(self.url)
-            p = subprocess.run(args, check=False, stderr=subprocess.PIPE)
-            if p.returncode == 0:
+                params["color"] = {
+                    "stderr": "always",
+                    "stdout": "always",
+                }  # --color always
+            if callable(progress_callback):
+                params["progress_hooks"] = [self.progress_book(progress_callback)]
+            try:
+                with yt_dlp.YoutubeDL(params) as ydl:  # type: ignore
+                    ydl.download([self.url])
                 return True
-            stderr = p.stderr.decode("utf-8")
-            if re.search(r"HTTP.+403.+Forbidden", stderr, re.IGNORECASE):
+            except YoutubeDLError as e:
+                print(f"Error occurred while downloading audio: {e}")
                 print(f"Retrying audio download (attempt {attempt}/{self.max_tries}).")
         return False
 
-    def download_video(self, path: Path | str) -> bool:
+    def download_video(
+        self,
+        path: Path | str,
+        progress_callback: ProgressCallback | None = None,
+    ) -> bool:
         """Download the video."""
         attempt = 0
         while attempt < self.max_tries:
             attempt += 1
             path = Path(path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            args = [
-                "yt-dlp",
-                "-f",
-                f"bestvideo[ext={path.suffix[1:]}][height<=1080]",
-                "--force-overwrites",
-                "-o",
-                path.as_posix(),
-            ]
-            if ansi.color_enabled():
-                args += ["--color", "always"]
-            args.append(self.url)
-            p = subprocess.run(args, check=False, stderr=subprocess.PIPE)
-            if p.returncode == 0:
+            ext = path.suffix[1:] if path.suffix else "mp4"
+            params = {
+                # cSpell: disable
+                "format": f"bestvideo[ext={ext}][height<=1080]",  # -f bestvideo...
+                "outtmpl": {"default": path.as_posix()},  # -o <path>
+                "overwrites": True,  # --force-overwrites
+                # cSpell: enable
+            }
+            if callable(progress_callback):
+                params["progress_hooks"] = [self.progress_book(progress_callback)]
+            try:
+                with yt_dlp.YoutubeDL(params) as ydl:  # type: ignore
+                    ydl.download([self.url])
                 return True
-            stderr = p.stderr.decode("utf-8")
-            if re.search(r"HTTP.+403.+Forbidden", stderr, re.IGNORECASE):
+            except YoutubeDLError as e:
+                print(f"Error occurred while downloading video: {e}")
                 print(f"Retrying video download (attempt {attempt}/{self.max_tries}).")
         return False
 

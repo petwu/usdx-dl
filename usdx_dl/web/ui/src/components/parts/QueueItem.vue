@@ -33,6 +33,7 @@ const props = withDefaults(
     index?: number
     size?: number
     isProcessing?: boolean
+    progress?: number
     disabled?: boolean
     class?: HTMLAttributes["class"]
   }>(),
@@ -105,7 +106,7 @@ const lyricsSearchUrl = computed(
     :is="props.as"
     :class="
       cn(
-        'bg-card overflow-hidden rounded border p-0',
+        'bg-card relative overflow-hidden rounded border p-0',
         'grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-2',
         'md:grid-cols-[auto_1fr_auto] md:grid-rows-[auto]',
         isProcessing && 'border-primary! bg-primary/10 grid-rows-[auto]',
@@ -114,6 +115,17 @@ const lyricsSearchUrl = computed(
       )
     "
   >
+    <div
+      v-if="progress"
+      :class="
+        cn(
+          'absolute top-0 left-0 -z-10 h-full w-0',
+          'bg-primary/20',
+          'transition-all duration-300 ease-linear',
+        )
+      "
+      :style="{ width: `${progress}%` }"
+    ></div>
     <img
       v-if="meta.coverUrl"
       :src="meta.coverUrl"

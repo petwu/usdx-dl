@@ -26,6 +26,7 @@ class MsgType(StrEnum):
     LOG = "log"
     ERROR = "error"
     UPDATE = "update"
+    PROGRESS = "progress"
 
 
 class ConnectionManager:

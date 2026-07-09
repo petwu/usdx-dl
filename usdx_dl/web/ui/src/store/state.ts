@@ -2,9 +2,10 @@ import { apiUrl } from "@/lib/host"
 import { addError } from "@/store/errors"
 import { $activeTab } from "@/store/nav"
 import type { PipelineContext, ServerState } from "@/types/api"
-import { map, onMount } from "nanostores"
+import { atom, map, onMount } from "nanostores"
 
 export const $state = map<ServerState>({ processing: null, queue: [], pending: 0 })
+export const $progress = atom<number>(0)
 
 onMount($state, () => {
   fetchState()

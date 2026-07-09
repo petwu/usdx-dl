@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from usdx_dl import cli, interactive, models, platform_utils, required_tools, usdb
+from usdx_dl import cli, models, platform_utils, required_tools, usdb
 from usdx_dl.web import state
 
 __all__ = ["router"]
@@ -267,12 +267,11 @@ async def post_queue_add(req: EnqueueRequest) -> models.PipelineContext:
         url_or_id=req.source,
         non_interactive=True,
     )
-    prompt = interactive.NonInteractivePrompt()
     state.processing_state.pending += 1
     state.processing_state.save()
     try:
         await asyncio.get_running_loop().run_in_executor(
-            None, cli.download.prepare, ctx, cfg.output_dir, prompt
+            None, cli.download.prepare, ctx, cfg.output_dir
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

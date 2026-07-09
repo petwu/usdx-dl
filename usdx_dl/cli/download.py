@@ -36,10 +36,14 @@ from usdx_dl.models import (
     Force,
     PipelineContext,
     PitchedData,
+    SeparatorModel,
     SongMetadata,
     SongPaths,
     TranscribedData,
+    WhisperModel,
 )
+from usdx_dl.progress import BottomProgressBar, ProgressEstimator, should_run
+from usdx_dl.types import ProgressCallback
 
 __all__ = ["main", "Force"]
 
@@ -50,6 +54,9 @@ def main(source: str, **kwargs) -> None:
     if Path(source).is_file():
         batch_process(Path(source), **kwargs)
     else:
+        pbar = BottomProgressBar[None](desc="Processing")
+        pbar.show()
+        kwargs["progress_callback"] = pbar
         kwargs.pop("keep_going", None)
         run_pipeline(url_or_id=source, **kwargs)
 
@@ -108,7 +115,7 @@ def __save_batch_file(path: Path, batch: Iterable[str]) -> None:
 
 
 def __print_batch_status(msg: str) -> None:
-    print(f"{ansi.MAGENTA}[BATCH] {msg}{ansi.RESET}")
+    print(f"{ansi.MAGENTA}[BATCH] {msg}{ansi.RESET}", flush=True)
 
 
 def ctx_uuid() -> str:
@@ -120,8 +127,8 @@ def run_pipeline(
     url_or_id: str,
     usdb_cookie: str | None,
     output_dir: Path,
-    stem_model: str,
-    whisper_model: str,
+    stem_model: SeparatorModel,
+    whisper_model: WhisperModel,
     sample_rate: int,
     vocals_gain: float,
     phrase_correction: float,
@@ -130,6 +137,7 @@ def run_pipeline(
     no_video: bool,
     non_interactive: bool,
     prompt: interactive.Prompt,
+    progress_callback: ProgressCallback = lambda progress: None,
 ) -> None:
     """Args: See :func:`.args.parse`."""
     ctx = PipelineContext(
@@ -148,13 +156,22 @@ def run_pipeline(
         no_lyrics=no_lyrics,
         no_video=no_video,
     )
-    prepare(ctx, output_dir, prompt)
-    process(ctx, output_dir, cfg_override)
+    prepare(ctx, output_dir, cfg_override, prompt)
+    process(ctx, output_dir, cfg_override, progress_callback)
 
 
-def prepare(ctx: PipelineContext, output_dir: Path, prompt: interactive.Prompt) -> None:
+def prepare(
+    ctx: PipelineContext,
+    output_dir: Path,
+    cfg_override: models.Config | None = None,
+    prompt: interactive.Prompt | None = None,
+) -> None:
     """Prepare a download request by collecting necessary metadata."""
     cfg = models.Config.load()
+    if cfg_override:
+        cfg.merge_(cfg_override, override=True)
+    if prompt is None:
+        prompt = interactive.NonInteractivePrompt()
 
     # detect if we start from USDB or YouTube
     if "usdb.animux.de" in ctx.url_or_id or ctx.url_or_id.isdigit():
@@ -333,6 +350,7 @@ def process(
     ctx: PipelineContext,
     output_dir: Path,
     cfg_override: models.Config | None = None,
+    progress_callback: ProgressCallback = lambda progress: None,
 ) -> None:
     """Process the song using the pipeline context. This function assumes that the
     pipeline context has been properly initialized by :func:`prepare`."""
@@ -362,13 +380,28 @@ def process(
     if ctx.lyrics:
         paths.lyrics.write_text(ctx.lyrics, "utf-8")
 
+    # initialize progress tracker
+    progress = ProgressEstimator(progress_callback)
+    progress.reset(paths, song_meta, ctx.force, cfg)
+    if hasattr(progress_callback, "set_title"):
+        progress_callback.set_title(str(song_meta))  # type: ignore
+
     # download cover image
     __print_step("Downloading cover and background image")
     t = perf_counter()
+    chunk_size = 8192
     if song_meta.cover_url and should_run(paths.cover, ctx.force, Force.DOWNLOAD):
         with requests.get(song_meta.cover_url, timeout=30) as response:
             response.raise_for_status()
-            cover = Image.open(io.BytesIO(response.content))
+            total_size = int(response.headers.get("content-length", 0))
+            if total_size > 0:
+                buf = io.BytesIO()
+                for chunk in response.iter_content(chunk_size):
+                    buf.write(chunk)
+                    progress.cover(buf.tell() / total_size)
+            else:
+                buf = io.BytesIO(response.content)
+        cover = Image.open(buf)
         crop_size = min(cover.width, cover.height)
         left = (cover.width - crop_size) // 2
         top = (cover.height - crop_size) // 2
@@ -382,15 +415,25 @@ def process(
         __print_cached(paths.cover)
     else:
         print("No cover found.")
+    progress.cover(True)
     if song_meta.bg_url and should_run(paths.bg, ctx.force, Force.DOWNLOAD):
         with requests.get(song_meta.bg_url, timeout=30) as response:
             response.raise_for_status()
-            background = Image.open(io.BytesIO(response.content))
+            total_size = int(response.headers.get("content-length", 0))
+            if total_size > 0:
+                buf = io.BytesIO()
+                for chunk in response.iter_content(chunk_size):
+                    buf.write(chunk)
+                    progress.bg(buf.tell() / total_size)
+            else:
+                buf = io.BytesIO(response.content)
+        background = Image.open(buf)
         with open(paths.bg, "wb") as f:
             background.save(f)
         __print_time(perf_counter() - t)
     else:
         __print_cached(paths.bg)
+    progress.bg(True)
 
     # download audio/video from YouTube
     t = perf_counter()
@@ -399,18 +442,21 @@ def process(
     else:
         __print_step("Downloading video and audio from YouTube")
         if should_run(paths.video, ctx.force, Force.DOWNLOAD):
-            ok = yt_client.download_video(paths.video)
+            ok = yt_client.download_video(paths.video, progress_callback=progress.video)
             if not ok:
                 raise RuntimeError(f"Failed to download YouTube video: {yt_client.url}")
         else:
             __print_cached(paths.video)
     if should_run(paths.audio, ctx.force, Force.DOWNLOAD):
-        ok = yt_client.download_audio(paths.audio, ctx.sample_rate)
+        ok = yt_client.download_audio(
+            paths.audio, ctx.sample_rate, progress_callback=progress.audio
+        )
         if not ok:
             raise RuntimeError(f"Failed to download YouTube video: {yt_client.url}")
         __print_time(perf_counter() - t)
     else:
         __print_cached(paths.audio)
+    progress.audio(True)
 
     # split vocals using AI model
     __print_step(f"Splitting vocals and instrumental parts using {cfg.stem_model}")
@@ -424,8 +470,8 @@ def process(
         )
         model_name_mapping = {
             # cSpell: disable
-            "demucs": "htdemucs.yaml",
-            "mel-roformer": "mel_band_roformer_karaoke_becruily.ckpt",
+            SeparatorModel.DEMUCS: "htdemucs.yaml",
+            SeparatorModel.MEL_ROFORMER: "mel_band_roformer_karaoke_becruily.ckpt",
             # cSpell: enable
         }
         separator.load_model(model_name_mapping[cfg.stem_model])
@@ -436,7 +482,9 @@ def process(
             "Bass": "bass",
             "Other": "other",
         }
-        separator.separate(paths.audio.as_posix(), output_names)
+        shifts = getattr(separator.model_instance, "shifts", 1)
+        with progress.from_tqdm("stem_split", num=shifts):
+            separator.separate(paths.audio.as_posix(), output_names)
         tmp_vocals = paths.tmp_dir / f"vocals.{paths.vocals.suffix[1:]}"
         if not tmp_vocals.exists():
             raise RuntimeError(
@@ -447,10 +495,10 @@ def process(
         if paths.vocals.exists():
             paths.vocals.unlink()
         tmp_vocals.rename(paths.vocals)
-        if cfg.stem_model in ["demucs"]:
-            stem_names = {
-                "demucs": ["drums", "bass", "other"],
-            }[cfg.stem_model]
+        stem_names_map = {
+            SeparatorModel.DEMUCS: ["drums", "bass", "other"],
+        }
+        if stem_names := stem_names_map.get(cfg.stem_model):
             stem_paths = [
                 paths.tmp_dir / f"{stem}.{paths.vocals.suffix[1:]}"
                 for stem in stem_names
@@ -469,6 +517,7 @@ def process(
     else:
         __print_cached(paths.vocals)
         __print_cached(paths.instrumental)
+    progress.stem_split(True)
 
     if ctx.vocals_gain > 0:
         vocals, _ = sf.read(paths.vocals)
@@ -489,14 +538,24 @@ def process(
             paths.vocals_muted, ctx.force, Force.DENOISE
         ):
             ok = ffmpeg.denoise_vocal_audio(
-                paths.vocals, paths.vocals_denoised, mono=True
+                paths.vocals,
+                paths.vocals_denoised,
+                mono=True,
+                # ~25% of denoise step is ffmpeg processing
+                progress_callback=progress.denoise @ (0, 0.25),
             )
             if not ok:
                 raise RuntimeError("Denoising vocals with ffmpeg failed.")
-            silence.mute_non_singing_parts(paths.vocals_denoised, paths.vocals_muted)
+            # ~75% of denoise step is silence detection and muting
+            silence.mute_non_singing_parts(
+                paths.vocals_denoised,
+                paths.vocals_muted,
+                progress_callback=progress.denoise @ (0.25, 1.0),
+            )
             __print_time(perf_counter() - t)
         else:
             __print_cached(paths.vocals_denoised)
+        progress.denoise(True)
 
         # transcribe audio
         __print_step(f"Transcribing audio using whisperx ({cfg.whisper_model})")
@@ -505,7 +564,8 @@ def process(
             language, transcribed_data = whisper.transcribe(
                 audio_path=paths.vocals_muted,
                 lyrics_path=None if cfg.no_lyrics else paths.lyrics,
-                model_arch=cfg.whisper_model,
+                model_arch=str(cfg.whisper_model),
+                progress_callback=progress.transcription,
             )
             if len(transcribed_data) == 0:
                 raise RuntimeError("Transcription failed.")
@@ -519,24 +579,28 @@ def process(
             language = paths.language.read_text().strip()
             __print_cached(paths.language)
             __print_cached(paths.transcription)
+        progress.transcription(True)
 
         # detect musical properties
         __print_step("Detecting pitch using swift-f0")
         t = perf_counter()
         bpm = usdx.detect_bpm(paths.audio)
         print(f"BPM: {bpm:.1f}")
+        progress.pitch(0.3)  # just rough estimates
         detected_key, detected_mode = usdx.detect_key(paths.audio)
         allowed_notes_for_key = usdx.get_allowed_notes_for_key(
             detected_key, detected_mode
         )
         print(f"Key: {detected_key} {detected_mode}")
+        progress.pitch(0.4)
         if should_run(paths.pitch, ctx.force, Force.PITCH):
-            pitched_data = usdx.detect_pitch(paths.vocals_muted)
+            # NOTE: can't track exact progress with onnxruntime
             models.to_json(pitched_data, paths.pitch)
             __print_time(perf_counter() - t)
         else:
             pitched_data = models.from_json(PitchedData, paths.pitch)
             __print_cached(paths.pitch)
+        progress.pitch(True)
 
         # generate TXT in UltraStar format
         __print_step("Generating UltraStar TXT file")
@@ -546,13 +610,16 @@ def process(
             transcribed_data = hyphens.hyphenate_transcription(
                 transcribed_data, language
             )
+            progress.generate_txt(0.1)  # just rough estimates
             transcribed_data = silence.remove_from_transcription(
                 paths.vocals, transcribed_data
             )
+            progress.generate_txt(0.5)
             transcribed_data = syllables.split_into_segments(transcribed_data, bpm)
             midi_segments = usdx.create_midi_segments(
                 transcribed_data, pitched_data, allowed_notes_for_key
             )
+            progress.generate_txt(0.95)
             midi_segments, transcribed_data = syllables.merge_segments(
                 midi_segments, transcribed_data, bpm
             )
@@ -560,9 +627,11 @@ def process(
                 phrase_splits = [t for t, _ in lyrics.parse(paths.lyrics.read_text())]
             else:
                 phrase_splits = None
+            progress.generate_txt(0.97)
             notes, bpm, gap = usdx.midi_to_ultrastar_txt(
                 midi_segments, bpm, phrase_splits, ctx.phrase_correction
             )
+            progress.generate_txt(0.99)
             txt = usdx_format.create(
                 notes=notes,
                 song_meta=song_meta,
@@ -578,6 +647,7 @@ def process(
         else:
             txt = paths.song_gen_txt.read_text()
             __print_cached(paths.song_gen_txt)
+        progress.generate_txt(True)
 
     __print_step("Producing final TXT file")
     t = perf_counter()
@@ -611,28 +681,19 @@ def process(
     dir_size = sum(f.stat().st_size for f in paths.base_dir.glob("**/*") if f.is_file())
     print("-" * (c1 + c2))
     print(f"{ansi.BOLD}Total: {fmt.bytes(dir_size):>{c1 + c2 - 7}s}{ansi.RESET}")
-
-
-def should_run(
-    output_file: Path | str,
-    force_arg: Force | None,
-    *force_types: Force,
-) -> bool:
-    """Helper to only run certain parts of the pipeline of either the output file
-    doesn't exist or the ``--force`` flag is set."""
-    return not Path(output_file).exists() or force_arg in ("all", *force_types)
+    progress.finish()
 
 
 def __print_step(step: str) -> None:
     """Print pipeline step header."""
-    print(f"{ansi.CYAN}{ansi.BOLD}[ {step} ]{ansi.RESET}")
+    print(f"{ansi.CYAN}{ansi.BOLD}[ {step} ]{ansi.RESET}", flush=True)
 
 
 def __print_time(elapsed: float) -> None:
     """Print step timing."""
-    print(f"{ansi.DIM}~~> Took {fmt.time(elapsed)}{ansi.RESET}")
+    print(f"{ansi.DIM}~~> Took {fmt.time(elapsed)}{ansi.RESET}", flush=True)
 
 
 def __print_cached(file: Path | str) -> None:
     """Print in case of reusing a cached result."""
-    print(f"{ansi.DIM}~~> Using cached result: {file}{ansi.RESET}")
+    print(f"{ansi.DIM}~~> Using cached result: {file}{ansi.RESET}", flush=True)

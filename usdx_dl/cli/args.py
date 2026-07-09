@@ -115,17 +115,17 @@ def parse() -> tuple[str | Callable, argparse.Namespace]:
     parser_dl.add_argument(
         "-s",
         "--stem-model",
-        type=str,
-        choices=["demucs", "mel-roformer"],
-        default="demucs",
+        type=models.SeparatorModel,
+        default=models.SeparatorModel.DEMUCS,
+        choices=list(models.SeparatorModel),
         help="Model used for stem separation. (default: %(default)s)",
     )
     parser_dl.add_argument(
         "-w",
         "--whisper-model",
-        type=str,
-        default="turbo",
-        choices=["tiny", "base", "small", "medium", "large", "turbo"],
+        type=models.WhisperModel,
+        default=models.WhisperModel.TURBO,
+        choices=list(models.WhisperModel),
         help="Model size of the WhisperX model used for transcription. "
         "(default: %(default)s)",
     )

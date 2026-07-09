@@ -7,6 +7,7 @@ import librosa
 import soundfile as sf
 
 from usdx_dl.models import TranscribedData
+from usdx_dl.types import ProgressCallback
 
 __all__ = [
     "get_sections",
@@ -147,10 +148,19 @@ def remove_from_transcription(
     return new_transcribed_data
 
 
-def mute_non_singing_parts(input_path: Path | str, output_path: Path | str) -> None:
+def mute_non_singing_parts(
+    input_path: Path | str,
+    output_path: Path | str,
+    progress_callback: ProgressCallback | None = None,
+) -> None:
     """Mute parts without singing/vocals."""
+    if progress_callback is None:
+        progress_callback = lambda _: None  # noqa  # pylint: disable-all
+
     silence_sections = get_sections(input_path)
+    progress_callback(0.35)  # just rough estimates
     y, sr = librosa.load(input_path, sr=None)
+    progress_callback(0.4)
     # Mute the parts of the audio with no singing
     for i in silence_sections:
         # Define the time range to mute
@@ -163,4 +173,7 @@ def mute_non_singing_parts(input_path: Path | str, output_path: Path | str) -> N
         end_sample = int(end_time * sr)
 
         y[start_sample:end_sample] = 0
+    progress_callback(0.5)
     sf.write(output_path, y, sr)  # type: ignore
+    progress_callback(1.0)
+    return None

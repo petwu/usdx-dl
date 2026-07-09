@@ -87,15 +87,33 @@ class MergeableModel(BaseModel):
         return self
 
 
+class WhisperModel(StrEnum):
+    """Whisper model names."""
+
+    TINY = "tiny"
+    BASE = "base"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    TURBO = "turbo"
+
+
+class SeparatorModel(StrEnum):
+    """Stem separation model names."""
+
+    DEMUCS = "demucs"
+    MEL_ROFORMER = "mel-roformer"
+
+
 class Config(MergeableModel):
     """App config."""
 
     output_dir: Path = __app__.user_music_path / "Karaoke"
-    models_dir: Path = __app__.user_data_path / "models"
+    models_dir: Path = __app__.user_cache_path / "models"
     pin: str | None = None
     usdb_cookie: str | None = None
-    stem_model: str = "demucs"
-    whisper_model: str = "turbo"
+    stem_model: SeparatorModel = SeparatorModel.DEMUCS
+    whisper_model: WhisperModel = WhisperModel.TURBO
     no_lyrics: bool = False
     no_video: bool = False
     initial_setup_done: bool = False
@@ -166,6 +184,7 @@ class SongMetadata(MergeableModel):
     artist: str
     title: str
     year: int
+    duration: float | None = None
     genre: str | None = None
     language: str | None = None
     usdb_url: str | None = None
@@ -176,9 +195,16 @@ class SongMetadata(MergeableModel):
     model_config = config
 
     def __repr__(self) -> str:
+        duration = (
+            f"{int(self.duration // 60)}:{int(self.duration % 60):02d}"
+            if self.duration is not None
+            else None
+        )
         return (
             f"{self.artist} - {self.title} ["
-            + ", ".join(str(x) for x in [self.year, self.language, self.genre] if x)
+            + ", ".join(
+                str(x) for x in [self.year, self.language, self.genre, duration] if x
+            )
             + "]"
             + (f" ({self.video_url})" if self.video_url else "")
         )
