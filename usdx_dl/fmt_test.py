@@ -101,6 +101,11 @@ def test_sub_diacritics(text: str, pattern: str):
             "AnnenMayKantereit",
             "Oft gefragt",
         ),
+        (
+            "KRAFTKLUB - Schüsse in die Luft (official video)",
+            "Kraftklub",
+            "Schüsse in die Luft",
+        ),
     ],
 )
 def test_clean_title(title: str, artist: str, expected: str):

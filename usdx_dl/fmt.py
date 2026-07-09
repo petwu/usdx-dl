@@ -119,7 +119,7 @@ def clean_title(title: str, artist: str) -> str:
     title = re.sub(r"[\"'“”‘’]", "", title)
 
     # remove leading/trailing artist names, e.g. "Artist - ", "... ft. Artist"
-    for a in re.split(r"(,|&|and|feat\.?|ft\.?)", artist, flags=re.IGNORECASE):
+    for a in re.split(r"(,|\s(?:&|and|feat\.?|ft\.?)\s)", artist, flags=re.IGNORECASE):
         a = re.sub(r"[\"'“”‘’]", "", a.strip())
         if len(a) < 2:
             continue
