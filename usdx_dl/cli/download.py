@@ -181,11 +181,31 @@ def prepare(
                     "Cannot continue without the PHPSESSID cookie from "
                     f"{usdb.APIClient.URL}."
                 )
-            usdb_cookie = prompt.string(f"PHPSESSID cookie from {usdb.APIClient.URL}: ")
-            if len(usdb_cookie.replace("PHPSESSID=", "")) < 22:
-                raise ValueError("Invalid PHPSESSID, must be at least 22 characters.")
-            cfg.usdb_cookie = usdb_cookie
-            cfg.save()
+            print(f"PHPSESSID cookie is required to access {usdb.APIClient.URL}.")
+            sessions = usdb.find_sessions()
+            if sessions:
+                choice = prompt.choice(
+                    f"Found {len(sessions)} logged in browser session(s) for USDB. ",
+                    description="Select one to use, or enter a custom PHPSESSID cookie.",
+                    choices=[
+                        f"{s.cookie} "
+                        f"from {ansi.MAGENTA}{s.browser}{ansi.RESET} "
+                        f"logged in as {ansi.CYAN}{s.username}{ansi.RESET}"
+                        for s in sessions
+                    ]
+                    + ["Other (manual entry)"],
+                )
+                if choice < len(sessions):
+                    cfg.usdb_cookie = sessions[choice].cookie
+                    cfg.save()
+            if not cfg.usdb_cookie:
+                usdb_cookie = prompt.string("PHPSESSID")
+                if len(usdb_cookie.replace("PHPSESSID=", "")) < 22:
+                    raise ValueError(
+                        "Invalid PHPSESSID, must be at least 22 characters."
+                    )
+                cfg.usdb_cookie = usdb_cookie
+                cfg.save()
         usdb_client = usdb.APIClient(ctx.url_or_id, cfg.usdb_cookie)
         yt_client = None
         song_id = str(usdb_client.id)

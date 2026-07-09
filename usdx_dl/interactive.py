@@ -39,6 +39,17 @@ class Prompt(Protocol):
         """Yes/no input."""
         ...
 
+    def choice(
+        self,
+        prompt: str,
+        *,
+        choices: list[str],
+        default: int | None = None,
+        description: str | None = None,
+    ) -> int:
+        """Multiple-choice input. Returns the index of the selected choice."""
+        ...
+
 
 class NonInteractivePrompt:
     """Non-interactive prompt that always returns defaults."""
@@ -72,6 +83,17 @@ class NonInteractivePrompt:
     ) -> bool:
         """Yes/no input."""
         return default if default is not None else False
+
+    def choice(
+        self,
+        prompt: str,
+        *,
+        choices: list[str],
+        default: int | None = None,
+        description: str | None = None,
+    ) -> int:
+        """Multiple-choice input."""
+        return default if default is not None else 0
 
 
 class CliPrompt:
@@ -145,3 +167,36 @@ class CliPrompt:
                 return True
             if result in ("n", "no"):
                 return False
+
+    @staticmethod
+    def choice(
+        prompt: str,
+        *,
+        choices: list[str],
+        default: int | None = None,
+        description: str | None = None,
+    ) -> int:
+        """Multiple-choice input."""
+        if not choices:
+            raise ValueError("Choices list cannot be empty.")
+        if default is not None and not 0 <= default < len(choices):
+            raise ValueError("Default index is out of range of choices.")
+        if description is not None:
+            prompt += f"\n{ansi.DIM}{description}{ansi.RESET}"
+        for i, choice in enumerate(choices):
+            prompt += f"\n  [{ansi.BLUE}{i + 1}{ansi.RESET}] {choice}"
+        choose_prompt = f"Choice (1-{len(choices)})"
+        if default is not None:
+            choose_prompt += f" [{ansi.BOLD}{default + 1}{ansi.RESET}]"
+        choose_prompt += ": "
+        print(prompt)
+        while True:
+            result = input(choose_prompt).strip()
+            if not result and default is not None:
+                return default
+            if result.isdigit() and 1 <= (idx := int(result)) <= len(choices):
+                return idx - 1
+            print(
+                f"{ansi.RED}Error: Invalid choice. Please enter a number between "
+                f"1 and {len(choices)}.{ansi.RESET}"
+            )
