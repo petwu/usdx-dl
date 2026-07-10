@@ -229,8 +229,8 @@ def fs_watch(
     what: str,
     path: Path | str,
     payload_fn: Callable[[], Any],
+    debounce: float = 0.1,
     event_types: Sequence[str] | None = ("created", "modified", "deleted", "moved"),
-    debounce_seconds: float = 0.1,
 ):
     """Watch a file or directory for changes.
 
@@ -241,10 +241,10 @@ def fs_watch(
             respective directory will be created.
         payload_fn: A function that returns the payload to send to the websocket
             when a change is detected.
-        event_types: A list of event types to watch for.
-        debounce_seconds: Minimum time in seconds between consecutive websocket
+        debounce: Minimum time in seconds between consecutive websocket
             messages. This is useful to avoid flooding the websocket with too many
             messages when a file is being written to in multiple steps.
+        event_types: A list of event types to watch for.
     """
     path = Path(path)
 
@@ -256,7 +256,7 @@ def fs_watch(
         what=what,
         payload_fn=payload_fn,
         event_types=event_types,
-        debounce_seconds=debounce_seconds,
+        debounce_seconds=debounce,
     )
     observer = Observer()
     observer.schedule(handler, str(path), recursive=path.is_dir())

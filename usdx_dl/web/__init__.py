@@ -37,16 +37,10 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
 
         # set up file system watchers that push updates to the web UI when files change
         fs_observers = [
-            ws.fs_watch(loop, "state", state.server_cfg.state_path, api.get_state),
-            ws.fs_watch(loop, "settings", cfg.path(), api.get_settings),
-            ws.fs_watch(loop, "songs", cfg.output_dir, api.get_songs),
-            ws.fs_watch(
-                loop,
-                "tools",
-                required_tools.bin_path(),
-                api.get_tools,
-                debounce_seconds=1.0,
-            ),
+            ws.fs_watch(loop, "state", state.server_cfg.state_path, api.get_state, 0.1),
+            ws.fs_watch(loop, "settings", cfg.path(), api.get_settings, 0.1),
+            ws.fs_watch(loop, "songs", cfg.output_dir, api.get_songs, 1.0),
+            ws.fs_watch(loop, "tools", required_tools.bin_path(), api.get_tools, 1.0),
         ]
 
         yield

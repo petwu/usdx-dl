@@ -307,8 +307,10 @@ async def post_queue_add(req: EnqueueRequest) -> models.PipelineContext:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:  # pylint: disable=broad-except
         raise HTTPException(status_code=500, detail=str(e)) from e
+    finally:
+        state.processing_state.pending -= 1
+        state.processing_state.save()
     state.processing_state.queue.append(ctx)
-    state.processing_state.pending -= 1
     state.processing_state.save()
     return ctx
 
