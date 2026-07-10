@@ -8,6 +8,7 @@ import {
   TabSettings,
   TabSongs,
 } from "@/components/tabs"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TabContent, TabList, Tabs, TabTrigger } from "@/components/ui/tabs"
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils"
 import { $errors } from "@/store/errors"
 import { $activeTab } from "@/store/nav"
 import { $serverCfg, $settings, togglePauseProcessing } from "@/store/settings"
+import { $songs } from "@/store/songs"
 import { $state, addToQueue } from "@/store/state"
 import { $ws, connectWebSocket } from "@/store/websocket"
 import {
@@ -37,6 +39,7 @@ const serverCfg = useStore($serverCfg)
 const state = useStore($state)
 const activeTab = useVModel($activeTab) as Ref<string>
 const ws = useStore($ws)
+const songs = useStore($songs)
 
 const link = ref<string>("")
 const enqueuePending = ref<boolean>(false)
@@ -132,8 +135,18 @@ async function enqueue() {
         </Button>
         <div class="min-w-0 shrink grow overflow-x-auto whitespace-nowrap">
           <TabList class="flex w-full min-w-fit">
-            <TabTrigger id="tab-queue">Queue</TabTrigger>
-            <TabTrigger id="tab-songs">Songs</TabTrigger>
+            <TabTrigger id="tab-queue">
+              Queue
+              <Badge v-if="state.processing || state.queue?.length > 0" size="xs" pill>
+                {{ (state.queue?.length ?? 0) + (state.processing ? 1 : 0) }}
+              </Badge>
+            </TabTrigger>
+            <TabTrigger id="tab-songs">
+              Songs
+              <Badge v-if="songs.length > 0" size="xs" pill>
+                {{ songs.length }}
+              </Badge>
+            </TabTrigger>
             <TabTrigger id="tab-logs">Output</TabTrigger>
             <TabTrigger id="tab-settings">Settings</TabTrigger>
             <TabTrigger id="tab-instructions">

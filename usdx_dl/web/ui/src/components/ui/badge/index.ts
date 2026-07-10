@@ -28,7 +28,7 @@ export const badgeVariants = cva(
         false: "rounded-sm",
       },
       size: {
-        xs: "text-xs [&>svg]:size-3",
+        xs: "px-1 py-0.25 text-xs leading-none [&>svg]:size-3",
         sm: "text-sm [&>svg]:size-3.5",
         md: "text-base [&>svg]:size-4",
         lg: "text-lg [&>svg]:size-4.5",
