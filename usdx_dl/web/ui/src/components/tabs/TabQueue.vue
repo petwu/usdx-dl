@@ -15,20 +15,13 @@ import {
 import type { ServerState } from "@/types/api"
 import { HelpCircle, ListMusic } from "@lucide/vue"
 import { useStore } from "@nanostores/vue"
-import { onMounted, onUnmounted, ref, useTemplateRef, watch, type Ref } from "vue"
+import { onMounted, onUnmounted, ref, useTemplateRef, type Ref } from "vue"
 
 const state = useStore($state) as Ref<ServerState>
 const progress = useStore($progress)
 
-const autoScroll: Ref<boolean | "y"> = ref(false)
 const pinProcessingItem = ref(true)
 const pinnedItemRef = useTemplateRef("pinnedItemRef")
-
-watch(
-  () => state.value.queue.length,
-  () => (autoScroll.value = "y"),
-  { once: true },
-)
 
 function onResize() {
   pinProcessingItem.value = window.innerHeight >= 480

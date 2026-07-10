@@ -20,6 +20,8 @@ const props = withDefaults(
     /** Whether to automatically scroll to the end of the content.
      * Can be restricted to only one axis even if the direction is "both". */
     autoScroll?: boolean | Direction
+    /** Whether to automatically scroll to the end of the content on initial render. */
+    autoScrollOnMount?: boolean
     /** Padding to apply to the opposite axis of the scroll direction, to prevent e.g.
      * ring-* from being cut off. */
     gutter?: `${number}px` | `${number}rem` | `${number}em` | `${number}%`
@@ -29,6 +31,7 @@ const props = withDefaults(
   {
     direction: "y",
     autoScroll: false,
+    autoScrollOnMount: false,
     gutter: "4px",
   },
 )
@@ -93,7 +96,7 @@ onMounted(() => {
   observer.observe(el, { childList: true, subtree: true, characterData: true })
 
   // initial scroll if autoScroll is already enabled
-  if (props.autoScroll) {
+  if (props.autoScroll && props.autoScrollOnMount) {
     nextTick(scrollToEnd)
   }
 })
