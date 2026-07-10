@@ -35,3 +35,12 @@ export function cn(...inputs: ClassValue[]) {
 export function tw(strings: TemplateStringsArray, ...values: any[]) {
   return String.raw({ raw: strings }, ...values)
 }
+
+/**
+ * Utility function to sleep for a given number of milliseconds.
+ * @param ms - The number of milliseconds to sleep.
+ * @returns A promise that resolves after the given number of milliseconds.
+ */
+export async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}

@@ -237,7 +237,8 @@ def fs_watch(
     Args:
         what: A string describing what is being watched. Can be used by the client to
             differentiate between different types of updates/payloads.
-        path: The path to the file or directory to watch.
+        path: The path to the file or directory to watch. If it doesn't exist, a
+            respective directory will be created.
         payload_fn: A function that returns the payload to send to the websocket
             when a change is detected.
         event_types: A list of event types to watch for.
@@ -248,7 +249,7 @@ def fs_watch(
     path = Path(path)
 
     if not path.exists():
-        raise FileNotFoundError(f"Cannot watch '{what}': {path} does not exist.")
+        path.mkdir(parents=True, exist_ok=True)
 
     handler = DebouncedWebSocketHandler(
         loop=loop,

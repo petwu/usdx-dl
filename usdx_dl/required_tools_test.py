@@ -1,3 +1,4 @@
+import hashlib
 import itertools
 import platform
 import shutil
@@ -68,4 +69,15 @@ def test_download(tool_name: str, os_name: str, arch: platform_utils.Arch) -> No
     )
     assert expected_output_path.stat().st_size > 0, (
         f"Expected {expected_output_path} to be non-empty after download."
+    )
+
+    spec = next((s for s in required_tools.__TOOLS__ if s.name == tool_name), None)
+    assert spec is not None
+    download_info = spec.downloads[(os_name, arch)]
+
+    sha256 = hashlib.sha256(expected_output_path.read_bytes()).hexdigest()
+    expected_sha256 = download_info.member_sha256
+    assert sha256 == expected_sha256, (
+        f"SHA256 mismatch for {tool_name} on {os_name}/{arch}: "
+        f"expected {expected_sha256}, got {sha256}."
     )

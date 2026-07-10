@@ -8,24 +8,33 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from usdx_dl import cli, models, platform_utils, required_tools, usdb
-from usdx_dl.web import state, worker
+from usdx_dl.web import state, worker, ws
 
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api")
 
 
-def setup_done() -> bool:
+def check_setup_state() -> tuple[bool, str]:
     """Check if the initial setup is done."""
     cfg = models.Config.load()
     tools = required_tools.query_all()
-    return cfg.initial_setup_done and not any(tool.download_required for tool in tools)
+    if not cfg.initial_setup_done:
+        return False, "welcome"
+    if not cfg.output_dir.exists():
+        return False, "songs-folder"
+    if not cfg.usdb_cookie:
+        return False, "usdb-cookie"
+    if any(tool.download_required for tool in tools):
+        return False, "download-tools"
+    return True, "done"
 
 
 class PartialServerConfig(BaseModel):
     """Partial server config for API responses."""
 
     setup_done: bool
+    setup_step: str
     unlocked_settings: bool
     pause_processing: bool
     is_webview: bool
@@ -36,8 +45,13 @@ class PartialServerConfig(BaseModel):
 @router.get("/server-config")
 async def get_server_config():
     """Get the current server config."""
+    setup_done, setup_step = check_setup_state()
+    if not setup_done:
+        if state.processing_state.processing:
+            worker.cancel()
     return PartialServerConfig(
-        setup_done=setup_done(),
+        setup_done=setup_done,
+        setup_step=setup_step,
         unlocked_settings=state.server_cfg.unlocked_settings,
         pause_processing=state.server_cfg.pause_processing,
         is_webview=state.server_cfg.is_webview,
@@ -152,6 +166,9 @@ async def patch_songs_directory(req: SongsPatchPatchRequest) -> Path:
     cfg.output_dir = new_dir
     cfg.save()
 
+    loop = asyncio.get_running_loop()
+    ws.fs_watch(loop, "songs", cfg.output_dir, get_songs)
+
     if req.move:
         if not new_dir.exists():
             # target directory doesn't exist, so we can just rename it
@@ -199,7 +216,14 @@ async def get_tools_download(req: ToolsDownloadRequest) -> None:
     """Download missing tools."""
     try:
         await asyncio.get_running_loop().run_in_executor(
-            None, required_tools.download, req.name
+            None,
+            required_tools.download,
+            req.name,
+            False,
+            lambda progress: ws.broadcast(
+                ws.MsgType.PROGRESS,
+                {"what": "tool", "tool": req.name, "progress": progress},
+            ),
         )
     except Exception as e:  # pylint: disable=broad-except
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -231,7 +255,7 @@ async def get_settings() -> models.Config:
 async def post_settings(cfg: models.Config) -> None:
     """Update the server settings."""
     correct_pin = models.Config.load().pin
-    if state.server_cfg.unlocked_settings or not setup_done():
+    if state.server_cfg.unlocked_settings or not check_setup_state()[0]:
         cfg.pin = correct_pin
     elif correct_pin and cfg.pin != correct_pin:
         raise HTTPException(status_code=403, detail="Invalid PIN.")

@@ -1,5 +1,6 @@
 export type ServerConfig = {
   setupDone: boolean
+  setupStep: string
   unlockedSettings: boolean
   pauseProcessing: boolean
   isWebview: boolean

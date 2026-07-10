@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from usdx_dl import ansi, models
+from usdx_dl import ansi, models, required_tools
 from usdx_dl.web import api, assets, state, worker, ws
 from usdx_dl.web.state import ServerConfig
 
@@ -40,6 +40,13 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument
             ws.fs_watch(loop, "state", state.server_cfg.state_path, api.get_state),
             ws.fs_watch(loop, "settings", cfg.path(), api.get_settings),
             ws.fs_watch(loop, "songs", cfg.output_dir, api.get_songs),
+            ws.fs_watch(
+                loop,
+                "tools",
+                required_tools.bin_path(),
+                api.get_tools,
+                debounce_seconds=1.0,
+            ),
         ]
 
         yield

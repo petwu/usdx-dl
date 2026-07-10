@@ -53,5 +53,6 @@ onUnmounted(disconnectWebSocket)
   height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 </style>

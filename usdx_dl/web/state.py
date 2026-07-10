@@ -82,9 +82,10 @@ class ServerState(BaseModel):
     def load(cls) -> Self:
         """Load the server state from disk."""
         path = server_cfg.state_path
-        if not path.exists():
+        try:
+            return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
+        except:  # pylint: disable=bare-except  # noqa: E722
             return cls()
-        return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
 
 
 class SetupState(BaseModel):

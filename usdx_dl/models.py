@@ -135,9 +135,10 @@ class Config(MergeableModel):
     def load(cls) -> Self:
         """Load the server state from disk."""
         path = Config.path()
-        if not path.exists():
+        try:
+            return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
+        except:  # pylint: disable=bare-except  # noqa: E722
             return cls()
-        return cls.model_validate_json(path.read_text("utf-8"), by_name=True)
 
 
 class USDBSession(BaseModel):
@@ -156,7 +157,8 @@ class DownloadInfo(BaseModel):
     version: str = Field(frozen=True)
     url: str = Field(frozen=True)
     sha256: str = Field(frozen=True)
-    member: str | None = Field(frozen=True, default=None)
+    member: str = Field(frozen=True)
+    member_sha256: str = Field(frozen=True)
 
 
 class Tool(BaseModel):

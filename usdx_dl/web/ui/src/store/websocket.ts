@@ -5,6 +5,7 @@ import { $logBuffer } from "@/store/logs"
 import { $settings } from "@/store/settings"
 import { $songs } from "@/store/songs"
 import { $progress, $state } from "@/store/state"
+import { $downloadProgress, $tools } from "@/store/tools"
 import type { MsgType } from "@/types/api"
 import { atom } from "nanostores"
 
@@ -78,6 +79,9 @@ async function handleWebSocketMessage(msg: string) {
           case "songs":
             $songs.set(data.payload)
             break
+          case "tools":
+            $tools.set(data.payload)
+            break
           default:
             addError(`Unhandled update type: ${data.what}`, data)
         }
@@ -85,7 +89,17 @@ async function handleWebSocketMessage(msg: string) {
 
       // progress updates from the worker thread
       case "progress":
-        $progress.set(data * 100)
+        data.progress *= 100 // convert to percentage
+        switch (data.what) {
+          case "worker":
+            $progress.set(data.progress)
+            break
+          case "tool":
+            $downloadProgress.setKey(data.tool, data.progress)
+            break
+          default:
+            addError(`Unhandled progress type: ${data.what}`, data)
+        }
         break
 
       default:

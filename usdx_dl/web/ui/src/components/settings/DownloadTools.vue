@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { markdownToHtml } from "@/lib/markdown"
 import { cn } from "@/lib/utils"
 import { $setup } from "@/store/settings"
-import { $tools, downloadTool } from "@/store/tools"
+import { $downloadProgress, $tools, downloadTool } from "@/store/tools"
 import {
   Check,
   CloudDownload,
@@ -23,10 +23,17 @@ import { computed, ref, watch } from "vue"
 const tools = useStore($tools)
 const downloading = ref<Record<string, boolean>>({})
 const showSha256 = ref<Record<string, boolean>>({})
+const downloadProgress = useStore($downloadProgress)
 
 const numMissing = computed(
   () => tools.value.filter((tool) => tool.downloadRequired).length,
 )
+
+$downloadProgress.listen((newValue, oldValue, tool) => {
+  if (tool && newValue[tool] && newValue[tool] > oldValue[tool]) {
+    downloading.value[tool] = true
+  }
+})
 
 watch(
   numMissing,
@@ -44,6 +51,14 @@ async function download(toolName: string) {
     downloading.value[toolName] = false
   }
 }
+
+async function downloadAll() {
+  for (const tool of tools.value) {
+    if (tool.downloadRequired) {
+      await download(tool.name)
+    }
+  }
+}
 </script>
 
 <template>
@@ -52,19 +67,38 @@ async function download(toolName: string) {
       The app needs some external programs to work properly. Below you can see which
       ones are required and installed.
     </p>
-    <p
-      v-if="numMissing > 0"
-      class="text-destructive border-destructive bg-destructive/10 rounded border px-3 py-2"
-    >
-      <X class="-mt-1 mr-2 inline size-5" />
-      <strong
-        >{{ numMissing }}
-        {{ numMissing === 1 ? "tool is" : "tools are" }} missing.</strong
+    <template v-if="numMissing > 0">
+      <p
+        class="text-destructive border-destructive bg-destructive/10 rounded border px-3 py-2"
       >
-      You need to install them before you can continue. Either install them manually on
-      your system, make sure they are in your <code>PATH</code> and restart the app, or
-      click the button below to download a prebuilt binary.
-    </p>
+        <X class="-mt-1 mr-2 inline size-5" />
+        <strong
+          >{{ numMissing }}
+          {{ numMissing === 1 ? "tool is" : "tools are" }} missing.</strong
+        >
+        You need to install them before you can continue. Either install them manually
+        on your system, make sure they are in your <code>PATH</code> and restart the
+        app, or click the button below to download a prebuilt binary.
+      </p>
+      <Button
+        class="relative my-2 w-full"
+        :disabled="Object.values(downloading).some((v) => v)"
+        @click="downloadAll"
+      >
+        <LoaderCircle
+          v-if="Object.values(downloading).some((v) => v)"
+          class="mr-2 animate-spin"
+        />
+        <Download v-else class="mr-2" />
+        Download All Missing Tools
+        <div
+          class="bg-primary-foreground/20 absolute inset-0 transition-all duration-300"
+          :style="{
+            width: `${Object.values(downloadProgress).reduce((a, b) => a + b, 0) / tools.length}%`,
+          }"
+        ></div>
+      </Button>
+    </template>
     <p
       v-else
       class="text-success border-success bg-success/10 rounded border px-3 py-2"
@@ -191,13 +225,17 @@ async function download(toolName: string) {
         </div>
         <Button
           v-if="tool.downloadRequired"
-          class="col-span-2 w-full"
+          class="relative col-span-2 w-full overflow-hidden"
           :disabled="Object.values(downloading).some((v) => v)"
           @click="download(tool.name)"
         >
           <LoaderCircle v-if="downloading[tool.name]" class="mr-2 animate-spin" />
           <Download v-else />
           Download {{ tool.name }} v{{ tool.downloadInfo.version }}
+          <div
+            class="bg-primary-foreground/20 absolute inset-0 transition-all duration-300"
+            :style="{ width: `${downloadProgress[tool.name] ?? 0}%` }"
+          ></div>
         </Button>
       </li>
     </ul>

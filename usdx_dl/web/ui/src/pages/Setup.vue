@@ -4,8 +4,8 @@ import ScrollContainer from "@/components/ScrollContainer.vue"
 import { DownloadTools, SongsFolder, UsdbCookie } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { TabLink, Tabs } from "@/components/ui/tabs"
-import { cn } from "@/lib/utils"
-import { $settings, $setup, setupComplete } from "@/store/settings"
+import { cn, sleep } from "@/lib/utils"
+import { $serverCfg, $settings, $setup, setupComplete } from "@/store/settings"
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,30 +16,24 @@ import {
   Wrench,
 } from "@lucide/vue"
 import { useStore, useVModel } from "@nanostores/vue"
-import { computed, onMounted, onUnmounted, ref } from "vue"
+import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 
 const setup = useStore($setup)
 const { usdbCookieModel } = useVModel($settings, ["usdbCookie"])
 const numSteps = 5
 const currentStep = ref<number>(0)
 const stepDirection = ref<"forward" | "backward">("forward")
+const steps = ["welcome", "songs-folder", "usdb-cookie", "download-tools", "done"]
 
-const canContinue = computed(() => {
-  switch (currentStep.value) {
-    case 0: // welcome
-      return true
-    case 1: // songs folder
-      return setup.value.songsFolder
-    case 2: // usdb cookie
-      return setup.value.usdbCookie
-    case 3: // download tools
-      return setup.value.downloadTools
-    case 4: // done
-      return true
-    default:
-      return false
-  }
+// restrict the user from continuing to the next step if the current step is not completed
+const maxStep = computed(() => {
+  if (!setup.value) return Infinity
+  if (!setup.value.songsFolder) return 1
+  if (!setup.value.usdbCookie) return 2
+  if (!setup.value.downloadTools) return 3
+  return numSteps
 })
+const canContinue = computed(() => currentStep.value < maxStep.value)
 
 function nextStep() {
   stepDirection.value = "forward"
@@ -75,11 +69,30 @@ function kbdHandler(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+let unwatchMaxStep: (() => void) | null = null
+onMounted(async () => {
+  while (($serverCfg.get().setupStep ?? "") === "") {
+    await sleep(50)
+  }
+  const stepIndex = steps.indexOf($serverCfg.get().setupStep)
+  currentStep.value = Math.max(0, Math.min(stepIndex, numSteps - 1))
+
+  // if somehow the config gets changed mid-setup, go back to the last non-completed step
+  setTimeout(() => {
+    unwatchMaxStep = watch(maxStep, (newVal) => {
+      if (currentStep.value > newVal) {
+        currentStep.value = newVal
+      }
+    })
+  }, 1000)
+
   window.addEventListener("keydown", kbdHandler)
 })
 onUnmounted(() => {
   window.removeEventListener("keydown", kbdHandler)
+  if (unwatchMaxStep) {
+    unwatchMaxStep()
+  }
 })
 </script>
 

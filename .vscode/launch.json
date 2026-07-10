@@ -42,6 +42,9 @@
       "module": "usdx_dl",
       "cwd": "${workspaceFolder}",
       "args": ["web", "--tee", "--host", "0.0.0.0"],
+      "env": {
+        "USDX_DL_NO_SYSTEM_TOOLS": "1"
+      },
       "console": "integratedTerminal",
       "justMyCode": false
     },

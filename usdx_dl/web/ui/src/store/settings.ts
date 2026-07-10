@@ -35,7 +35,7 @@ onMount($settings, () => {
 
 onMount($serverCfg, () => {
   fetchServerConfig()
-  const interval = setInterval(fetchServerConfig, 3000)
+  const interval = setInterval(fetchServerConfig, 2000)
   return () => clearInterval(interval)
 })
 
@@ -69,7 +69,11 @@ async function fetchSettings() {
 async function updateSettings(pinChanged: boolean) {
   const settings = $settings.get()
   const pin = $pin.get()
-  if (updatingSettings || !settings || (pin.valid === false && !pin.value)) {
+  const setupDone = $serverCfg.get().setupDone
+  if (
+    setupDone &&
+    (updatingSettings || !settings || (pin.valid === false && !pin.value))
+  ) {
     return
   }
   updatingSettings = true
@@ -94,7 +98,7 @@ async function updateSettings(pinChanged: boolean) {
   updatingSettings = false
 }
 
-async function fetchServerConfig() {
+export async function fetchServerConfig() {
   const response = await fetch(apiUrl("/server-config"))
   if (response.ok) {
     $serverCfg.set(await response.json())

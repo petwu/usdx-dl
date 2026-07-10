@@ -24,11 +24,13 @@ def download_job(
 ) -> None:
     """Run the download job in a separate process."""
     try:
-        msg_queue.put((ws.MsgType.PROGRESS, 0.0))
+        msg_queue.put((ws.MsgType.PROGRESS, {"type": "worker", "progress": 0.0}))
         cli.download.process(
             ctx,
             output_dir,
-            progress_callback=lambda p: msg_queue.put((ws.MsgType.PROGRESS, p)),
+            progress_callback=lambda p: msg_queue.put(
+                (ws.MsgType.PROGRESS, {"what": "worker", "progress": p})
+            ),
         )
     except Exception as e:  # pylint: disable=broad-exception-caught
         msg_queue.put((ws.MsgType.ERROR, f"Error processing {ctx.url_or_id}: {e}"))
