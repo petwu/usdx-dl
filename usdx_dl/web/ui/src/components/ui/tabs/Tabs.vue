@@ -7,6 +7,7 @@ const props = defineProps<{
   class?: HTMLAttributes["class"]
   history?: boolean
   titleTemplate?: string
+  unmountOnHide?: boolean
 }>()
 
 const activeTab = defineModel<string>({ default: "" })
@@ -15,6 +16,7 @@ if (!activeTab.value && props.defaultTab) {
 }
 const mounted = ref(false)
 const skipNextHistoryPush = ref(false)
+const unmountOnHide = ref(props.unmountOnHide ?? false)
 
 function setTab(id: string, text?: string) {
   activeTab.value = id
@@ -47,6 +49,7 @@ if (props.history) {
 }
 
 provide("activeTab", activeTab)
+provide("unmountOnHide", unmountOnHide)
 provide("setTab", setTab)
 
 watch(
