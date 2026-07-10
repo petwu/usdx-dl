@@ -17,6 +17,7 @@ import {
   Ban,
   Check,
   LoaderCircle,
+  MicVocal,
   Pencil,
   PencilOff,
   Play,
@@ -182,7 +183,17 @@ const lyricsSearchUrl = computed(
           />
         </span>
       </p>
-      <p>
+      <p class="my-1">
+        <a
+          v-if="meta.usdbUrl && !editable"
+          :href="meta.usdbUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1 text-sm"
+        >
+          <MicVocal :size="16" /> USDB
+        </a>
+        <template v-if="meta.usdbUrl && meta.videoUrl && !editable"> &nbsp; </template>
         <a
           v-if="meta.videoUrl && !editable"
           :href="meta.videoUrl"
@@ -191,9 +202,7 @@ const lyricsSearchUrl = computed(
           class="inline-flex items-center gap-1 text-sm"
         >
           <Play :size="16" />
-          <template v-if="meta.videoUrl.match(youtubeRegex)">
-            YouTube ({{ meta.videoUrl.match(youtubeRegex)![1] }})
-          </template>
+          <template v-if="meta.videoUrl.match(youtubeRegex)">YouTube</template>
           <template v-else>Video</template>
         </a>
         <Input

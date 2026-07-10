@@ -15,16 +15,39 @@ import {
 import type { ServerState } from "@/types/api"
 import { HelpCircle, ListMusic } from "@lucide/vue"
 import { useStore } from "@nanostores/vue"
-import type { Ref } from "vue"
+import { onMounted, onUnmounted, ref, useTemplateRef, watch, type Ref } from "vue"
 
 const state = useStore($state) as Ref<ServerState>
 const progress = useStore($progress)
+
+const autoScroll: Ref<boolean | "y"> = ref(false)
+const pinProcessingItem = ref(true)
+const pinnedItemRef = useTemplateRef("pinnedItemRef")
+
+watch(
+  () => state.value.queue.length,
+  () => (autoScroll.value = "y"),
+  { once: true },
+)
+
+function onResize() {
+  pinProcessingItem.value = window.innerHeight >= 480
+}
+
+onMounted(() => {
+  onResize()
+  window.addEventListener("resize", onResize)
+})
+onUnmounted(() => {
+  window.removeEventListener("resize", onResize)
+})
 </script>
 
 <template>
-  <ScrollContainer direction="y" autoScroll="y" class="h-full">
+  <div class="flex h-full flex-col">
+    <div ref="pinnedItemRef"></div>
     <div
-      v-if="!state.processing && !state.queue.length && !state.pending && false"
+      v-if="!state.processing && !state.queue.length && !state.pending"
       class="absolute top-1/2 left-1/2 z-10 flex w-fit -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center"
     >
       <p class="text-muted-foreground italic">Queue is empty.</p>
@@ -39,43 +62,52 @@ const progress = useStore($progress)
         Browse Songs
       </TabLink>
     </div>
-    <TransitionGroup tag="ul" name="queue" class="relative block min-h-full">
-      <BorderBeam
-        v-if="state.processing"
-        as="li"
-        border-width="2px"
-        class="border-primary/20 rounded"
-      >
+    <ScrollContainer v-else direction="y" autoScroll="y" class="min-h-0 shrink grow">
+      <TransitionGroup tag="ul" name="queue" class="relative block min-h-full">
+        <Teleport
+          v-if="state.processing"
+          :to="pinnedItemRef"
+          :disabled="!pinProcessingItem"
+          defer
+        >
+          <BorderBeam
+            as="li"
+            :key="state.processing.uuid"
+            border-width="2px"
+            class="border-primary/20 rounded"
+          >
+            <QueueItem
+              :item="state.processing"
+              :isProcessing="true"
+              :progress="progress"
+              @click-badge="$activeTab.set('tab-logs')"
+              @cancel="cancelWorker"
+            />
+          </BorderBeam>
+          <hr v-if="pinProcessingItem" class="border-primary/20 my-2" />
+        </Teleport>
         <QueueItem
-          :key="state.processing.uuid"
-          :item="state.processing"
-          :isProcessing="true"
-          :progress="progress"
-          @click-badge="$activeTab.set('tab-logs')"
-          @cancel="cancelWorker"
+          v-for="(item, index) in state.queue"
+          :key="item.uuid"
+          as="li"
+          :index="index"
+          :size="state.queue.length"
+          :item="item"
+          class="not-first:mt-2"
+          @remove="removeFromQueue"
+          @move="moveQueueItem"
+          @update="updateQueueItem"
+          @retry="retryQueueItem"
         />
-      </BorderBeam>
-      <QueueItem
-        v-for="(item, index) in state.queue"
-        :key="item.uuid"
-        as="li"
-        :index="index"
-        :size="state.queue.length"
-        :item="item"
-        class="not-first:mt-2"
-        @remove="removeFromQueue"
-        @move="moveQueueItem"
-        @update="updateQueueItem"
-        @retry="retryQueueItem"
-      />
-      <QueueSkeleton
-        v-for="_ in state.pending ?? 0"
-        as="li"
-        :key="`pending-${_}`"
-        class="not-first:mt-2"
-      />
-    </TransitionGroup>
-  </ScrollContainer>
+        <QueueSkeleton
+          v-for="_ in state.pending ?? 0"
+          as="li"
+          :key="`pending-${_}`"
+          class="not-first:mt-2"
+        />
+      </TransitionGroup>
+    </ScrollContainer>
+  </div>
 </template>
 
 <style scoped>
