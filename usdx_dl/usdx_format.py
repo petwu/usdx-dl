@@ -13,14 +13,14 @@ from usdx_dl.models import SongMetadata
 def parse_metadata(txt: str) -> SongMetadata | None:
     """Parse song metadata from a UltraStar TXT file."""
 
-    def get(key: str) -> str:
+    def get(key: str, default: str = "") -> str:
         for line in txt.splitlines():
             line = line.strip()
             if not line.startswith("#"):
                 break  # end of header
             if line.startswith(f"#{key}:"):
                 return line[len(f"#{key}:") :].strip()
-        return ""
+        return default
 
     artist = get("ARTIST")
     title = fmt.clean_title(get("TITLE"), artist)
@@ -28,7 +28,7 @@ def parse_metadata(txt: str) -> SongMetadata | None:
     return SongMetadata(
         artist=artist,
         title=title,
-        year=int(get("YEAR")),
+        year=int(get("YEAR", "0")),
         genre=get("GENRE"),
         language=get("LANGUAGE"),
     )

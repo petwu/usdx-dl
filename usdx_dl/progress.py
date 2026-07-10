@@ -205,6 +205,7 @@ class ProgressEstimator:
             self.WEIGHTS[step] *= self.REFERENCE_FLOPS / device_flops
 
         self.resetting = False
+        self.callback(0.0)
 
     def finish(self) -> None:
         """Mark all steps as finished."""
